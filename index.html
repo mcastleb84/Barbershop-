@@ -1,3 +1,791 @@
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Barbershop - Appointments</title>
+  
+  <!-- Firebase Compatibility SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --maroon-dark: #2b040d;
+      --maroon-base: #4a0d18;
+      --maroon-card: #5a1220;
+      --maroon-border: #7d1c2f;
+      --maroon-hover: #691424;
+      --gold-primary: #d4af37;
+      --gold-light: #f3e5ab;
+      --gold-dark: #997b20;
+      --text-main: #f9f6f0;
+      --text-muted: #d6c5c7;
+      --danger: #ff5252;
+      --success: #2e7d32;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: radial-gradient(circle at top, var(--maroon-base) 0%, var(--maroon-dark) 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto 30px;
+    }
+
+    /* Header & Navigation Details */
+    header {
+      text-align: center;
+      padding: 24px 16px;
+      background: var(--maroon-card);
+      border: 1px solid var(--maroon-border);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      margin-bottom: 20px;
+    }
+
+    h1.shop-title {
+      font-size: 2.4rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold-primary);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      margin-bottom: 8px;
+    }
+
+    .shop-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 0.95rem;
+    }
+
+    .meta-link {
+      color: var(--gold-light);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+
+    .meta-link:hover, .meta-link:active {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    .hours-badge {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px dashed var(--maroon-border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-top: 8px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    .hours-badge strong {
+      color: var(--gold-light);
+    }
+
+    /* Navigation Mode Tabs */
+    .view-toggle {
+      display: flex;
+      background: rgba(0,0,0,0.3);
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid var(--maroon-border);
+    }
+
+    .view-toggle button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .view-toggle button.active {
+      background: var(--gold-primary);
+      color: var(--maroon-dark);
+    }
+
+    /* Cards & Content Sections */
+    .card {
+      background: var(--maroon-card);
+      border: 1px solid var(--maroon-border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      color: var(--gold-primary);
+      border-bottom: 1px solid var(--maroon-border);
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Barber Card List */
+    .barber-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .barber-item {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--maroon-border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .barber-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .barber-link {
+      color: var(--gold-light);
+      font-size: 1.15rem;
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .barber-quick-note {
+      background: rgba(212, 175, 55, 0.12);
+      border-left: 3px solid var(--gold-primary);
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      color: var(--gold-light);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .barber-schedule-info {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Scheduling Form */
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    select, input, textarea {
+      width: 100%;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--maroon-border);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 1rem;
+    }
+
+    select:focus, input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--gold-primary);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--gold-primary);
+      color: var(--maroon-dark);
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--gold-primary);
+      color: var(--gold-primary);
+      margin-top: 8px;
+    }
+
+    /* Barber Portal / Appointments Ledger */
+    .appointment-item {
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 4px solid var(--gold-primary);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .appointment-item strong {
+      color: var(--gold-light);
+      font-size: 1rem;
+    }
+
+    .badge-status {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: var(--maroon-border);
+      color: var(--text-main);
+      margin-left: 6px;
+    }
+
+    .notice {
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      margin-bottom: 12px;
+    }
+    .notice-info {
+      background: rgba(43, 4, 13, 0.7);
+      border: 1px solid var(--gold-dark);
+      color: var(--gold-light);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Title & Navigation Header -->
+    <header>
+      <h1 class="shop-title">Barbershop</h1>
+      
+      <div class="shop-meta">
+        <!-- Direct GPS Navigator Link -->
+        <a class="meta-link" href="https://maps.google.com/?q=123+Main+Street,+Tampa,+FL+33602" target="_blank" rel="noopener">
+          📍 123 Main Street, Tampa, FL 33602 (Open in Maps)
+        </a>
+        <!-- Direct Phone Link -->
+        <a class="meta-link" href="tel:8135550199">
+          📞 (813) 555-0199
+        </a>
+      </div>
+
+      <div class="hours-badge">
+        <strong>Shop Hours:</strong> Tuesday – Saturday: 9:00 AM – 7:00 PM | Sun & Mon: Closed
+      </div>
+    </header>
+
+    <!-- Top Navigation Switcher -->
+    <div class="view-toggle">
+      <button id="tab-client" class="active" onclick="switchView('client')">Client Booking</button>
+      <button id="tab-barber" onclick="switchView('barber')">Barber Portal</button>
+    </div>
+
+    <!-- ================= CLIENT VIEW ================= -->
+    <div id="view-client">
+      
+      <!-- Barber Selection & Hyperlink Directory -->
+      <div class="card">
+        <h2 class="section-title">Our Barbers</h2>
+        <div class="barber-grid" id="barber-roster">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Booking Form -->
+      <div class="card" id="booking-section">
+        <h2 class="section-title">Book an Appointment</h2>
+        
+        <form id="booking-form" onsubmit="handleBookingSubmit(event)">
+          <div class="form-group">
+            <label for="select-barber">Selected Barber</label>
+            <select id="select-barber" required onchange="onBarberSelectChanged()">
+              <option value="">-- Choose a Barber --</option>
+            </select>
+          </div>
+
+          <div id="selected-barber-note" class="form-group hidden">
+            <div class="barber-quick-note" id="booking-note-text"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="book-service">Service</label>
+            <select id="book-service" required>
+              <option value="Classic Haircut ($35)">Classic Haircut ($35)</option>
+              <option value="Beard Trim & Shape ($25)">Beard Trim & Shape ($25)</option>
+              <option value="Full Haircut + Hot Towel Shave ($55)">Full Haircut + Hot Towel Shave ($55)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="book-date">Select Date</label>
+            <input type="date" id="book-date" required onchange="generateAvailableSlots()">
+          </div>
+
+          <div class="form-group">
+            <label for="book-time">Select Time Slot</label>
+            <select id="book-time" required>
+              <option value="">-- Pick a Date First --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="client-name">Your Full Name</label>
+            <input type="text" id="client-name" placeholder="John Doe" required>
+          </div>
+
+          <div class="form-group">
+            <label for="client-phone">Phone Number</label>
+            <input type="tel" id="client-phone" placeholder="(813) 555-1234" required>
+          </div>
+
+          <button type="submit" class="btn">Confirm Appointment</button>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- ================= BARBER LOGIN & PORTAL VIEW ================= -->
+    <div id="view-barber" class="hidden">
+      
+      <!-- Login Box (Shown when not authenticated) -->
+      <div class="card" id="barber-auth-box">
+        <h2 class="section-title">Barber Login</h2>
+        <div class="notice notice-info">
+          Sign in to view your scheduled clients, update out-of-office dates, and post shift notes.
+        </div>
+        <form onsubmit="handleBarberLogin(event)">
+          <div class="form-group">
+            <label for="auth-email">Barber Email</label>
+            <input type="email" id="auth-email" placeholder="e.g. marcus@barbershop.com" required>
+          </div>
+          <div class="form-group">
+            <label for="auth-password">Password</label>
+            <input type="password" id="auth-password" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn">Sign In to Schedule</button>
+        </form>
+      </div>
+
+      <!-- Protected Barber Dashboard (Shown after authentication) -->
+      <div id="barber-dashboard" class="hidden">
+        
+        <div class="card">
+          <div class="section-title">
+            <span id="dash-barber-name">Barber Dashboard</span>
+            <button class="btn btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.8rem;" onclick="handleBarberLogout()">Logout</button>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 12px;">
+            Logged in as: <span id="dash-barber-email" style="color: var(--gold-light);"></span>
+          </p>
+
+          <!-- Quick Note & Out of Office Updates -->
+          <form onsubmit="handleSaveQuickNote(event)">
+            <div class="form-group">
+              <label for="dash-quick-note">My Quick Note / Out-of-Office Notice</label>
+              <textarea id="dash-quick-note" rows="2" placeholder="e.g., Leaving at 2 PM this Friday; Off next Tuesday"></textarea>
+            </div>
+            <button type="submit" class="btn" style="padding: 10px;">Update Status Note</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2 class="section-title">My Scheduled Appointments</h2>
+          <div id="appointments-list">
+            <p style="color: var(--text-muted);">No appointments booked yet.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    /* ==========================================================
+       1. FIREBASE CONFIGURATION
+       Replace the placeholder values below with your keys from:
+       Firebase Console -> Project Settings -> General -> Your apps (Web)
+       ========================================================== */
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    let isFirebaseReady = false;
+    let auth = null;
+    let db = null;
+
+    if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+      try {
+        firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+        isFirebaseReady = true;
+      } catch (err) {
+        console.warn("Firebase initialization skipped:", err);
+      }
+    }
+
+    /* ==========================================================
+       2. LOCAL STATE / DEMO FALLBACK
+       Ensures the application functions seamlessly even before
+       Firebase credentials are plugged in.
+       ========================================================== */
+    let barbers = [
+      {
+        id: "marcus",
+        name: "Marcus Vance",
+        email: "marcus@barbershop.com",
+        title: "Master Barber",
+        hours: "Tue - Sat: 9:00 AM - 6:00 PM",
+        note: "Leaving early at 3:00 PM on Friday for personal appointment."
+      },
+      {
+        id: "leo",
+        name: "Leo Rossi",
+        email: "leo@barbershop.com",
+        title: "Senior Stylist",
+        hours: "Wed - Sat: 10:00 AM - 7:00 PM",
+        note: "Out of office Nov 4 - Nov 6 for barber expo."
+      },
+      {
+        id: "sarah",
+        name: "Sarah Jenkins",
+        email: "sarah@barbershop.com",
+        title: "Fades & Styling Specialist",
+        hours: "Tue - Fri: 9:00 AM - 5:00 PM",
+        note: "Fully booked this Thursday morning."
+      }
+    ];
+
+    let appointments = JSON.parse(localStorage.getItem("barbershop_appts") || "[]");
+    let currentAuthUser = null;
+
+    /* ==========================================================
+       3. VIEW CONTROLLER & NAVIGATION
+       ========================================================== */
+    function switchView(viewName) {
+      document.getElementById('view-client').classList.toggle('hidden', viewName !== 'client');
+      document.getElementById('view-barber').classList.toggle('hidden', viewName !== 'barber');
+      
+      document.getElementById('tab-client').classList.toggle('active', viewName === 'client');
+      document.getElementById('tab-barber').classList.toggle('active', viewName === 'barber');
+    }
+
+    function scheduleWithBarber(barberId) {
+      switchView('client');
+      const select = document.getElementById('select-barber');
+      select.value = barberId;
+      onBarberSelectChanged();
+      document.getElementById('booking-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /* ==========================================================
+       4. CLIENT ROSTER & SCHEDULING UI
+       ========================================================== */
+    function renderRoster() {
+      const rosterContainer = document.getElementById('barber-roster');
+      const selectBarber = document.getElementById('select-barber');
+      
+      rosterContainer.innerHTML = '';
+      selectBarber.innerHTML = '<option value="">-- Choose a Barber --</option>';
+
+      barbers.forEach(barber => {
+        // Build Barber Card with Hyperlink
+        const card = document.createElement('div');
+        card.className = 'barber-item';
+        card.innerHTML = `
+          <div class="barber-header">
+            <!-- Scheduling time hyperlink directly attached to barber's name -->
+            <a class="barber-link" href="#booking-section" onclick="scheduleWithBarber('${barber.id}')">
+              ${barber.name} ➔
+            </a>
+            <span style="font-size:0.8rem; color:var(--gold-primary);">${barber.title}</span>
+          </div>
+          <div class="barber-schedule-info">📅 Schedule: ${barber.hours}</div>
+          ${barber.note ? `<div class="barber-quick-note">⚠️ Note: ${barber.note}</div>` : ''}
+        `;
+        rosterContainer.appendChild(card);
+
+        // Populate Select Dropdown
+        const opt = document.createElement('option');
+        opt.value = barber.id;
+        opt.textContent = barber.name;
+        selectBarber.appendChild(opt);
+      });
+    }
+
+    function onBarberSelectChanged() {
+      const barberId = document.getElementById('select-barber').value;
+      const noteBox = document.getElementById('selected-barber-note');
+      const noteText = document.getElementById('booking-note-text');
+      
+      const selected = barbers.find(b => b.id === barberId);
+      if (selected && selected.note) {
+        noteText.textContent = `${selected.name}'s Note: ${selected.note}`;
+        noteBox.classList.remove('hidden');
+      } else {
+        noteBox.classList.add('hidden');
+      }
+      generateAvailableSlots();
+    }
+
+    function generateAvailableSlots() {
+      const dateVal = document.getElementById('book-date').value;
+      const timeSelect = document.getElementById('book-time');
+      const barberId = document.getElementById('select-barber').value;
+      
+      timeSelect.innerHTML = '';
+
+      if (!dateVal) {
+        timeSelect.innerHTML = '<option value="">-- Select Date First --</option>';
+        return;
+      }
+
+      // Check shop closed days (Sunday = 0, Monday = 1)
+      const selectedDate = new Date(dateVal + 'T00:00:00');
+      const day = selectedDate.getDay();
+      if (day === 0 || day === 1) {
+        timeSelect.innerHTML = '<option value="">Shop is closed on Sun & Mon</option>';
+        return;
+      }
+
+      const standardSlots = [
+        "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", 
+        "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM"
+      ];
+
+      // Filter slots that are already booked for this barber on this date
+      const bookedTimes = appointments
+        .filter(a => a.barberId === barberId && a.date === dateVal)
+        .map(a => a.time);
+
+      const availableSlots = standardSlots.filter(t => !bookedTimes.includes(t));
+
+      if (availableSlots.length === 0) {
+        timeSelect.innerHTML = '<option value="">No open times available</option>';
+        return;
+      }
+
+      timeSelect.innerHTML = '<option value="">-- Pick an Available Time --</option>';
+      availableSlots.forEach(slot => {
+        const opt = document.createElement('option');
+        opt.value = slot;
+        opt.textContent = slot;
+        timeSelect.appendChild(opt);
+      });
+    }
+
+    function handleBookingSubmit(e) {
+      e.preventDefault();
+      const barberId = document.getElementById('select-barber').value;
+      const barber = barbers.find(b => b.id === barberId);
+      const service = document.getElementById('book-service').value;
+      const date = document.getElementById('book-date').value;
+      const time = document.getElementById('book-time').value;
+      const clientName = document.getElementById('client-name').value;
+      const clientPhone = document.getElementById('client-phone').value;
+
+      if (!time) {
+        alert("Please select a valid time slot.");
+        return;
+      }
+
+      const newAppointment = {
+        barberId: barber.id,
+        barberEmail: barber.email,
+        barberName: barber.name,
+        service: service,
+        date: date,
+        time: time,
+        clientName: clientName,
+        clientPhone: clientPhone,
+        createdAt: new Date().toISOString()
+      };
+
+      if (isFirebaseReady) {
+        db.collection("appointments").add(newAppointment).then(() => {
+          alert(`Appointment Confirmed with ${barber.name} on ${date} at ${time}!`);
+          document.getElementById('booking-form').reset();
+          generateAvailableSlots();
+        }).catch(err => alert("Error saving booking: " + err.message));
+      } else {
+        // Local storage demo fallback
+        appointments.push(newAppointment);
+        localStorage.setItem("barbershop_appts", JSON.stringify(appointments));
+        alert(`Appointment Confirmed with ${barber.name} on ${date} at ${time}!`);
+        document.getElementById('booking-form').reset();
+        generateAvailableSlots();
+      }
+    }
+
+    /* ==========================================================
+       5. BARBER PORTAL, AUTHENTICATION & QUICK NOTES
+       ========================================================== */
+    function handleBarberLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value.trim().toLowerCase();
+      const password = document.getElementById('auth-password').value;
+
+      if (isFirebaseReady) {
+        auth.signInWithEmailAndPassword(email, password)
+          .then(cred => {
+            currentAuthUser = cred.user;
+            showBarberDashboard(email);
+          })
+          .catch(err => alert("Login Failed: " + err.message));
+      } else {
+        // Fallback demo login: matches any email from the barbers roster
+        const barberMatch = barbers.find(b => b.email.toLowerCase() === email);
+        if (barberMatch) {
+          currentAuthUser = { email: barberMatch.email };
+          showBarberDashboard(barberMatch.email);
+        } else {
+          alert("Barber email not recognized. Use marcus@barbershop.com or configure Firebase.");
+        }
+      }
+    }
+
+    function showBarberDashboard(email) {
+      document.getElementById('barber-auth-box').classList.add('hidden');
+      document.getElementById('barber-dashboard').classList.remove('hidden');
+      
+      const barber = barbers.find(b => b.email.toLowerCase() === email.toLowerCase()) || {
+        name: "Barber",
+        email: email,
+        note: ""
+      };
+
+      document.getElementById('dash-barber-name').textContent = barber.name;
+      document.getElementById('dash-barber-email').textContent = barber.email;
+      document.getElementById('dash-quick-note').value = barber.note || "";
+
+      loadBarberAppointments(barber);
+    }
+
+    function loadBarberAppointments(barber) {
+      const container = document.getElementById('appointments-list');
+
+      if (isFirebaseReady) {
+        db.collection("appointments")
+          .where("barberEmail", "==", barber.email)
+          .onSnapshot(snapshot => {
+            container.innerHTML = "";
+            if (snapshot.empty) {
+              container.innerHTML = `<p style="color:var(--text-muted);">No appointments booked yet.</p>`;
+              return;
+            }
+            snapshot.forEach(doc => {
+              const appt = doc.data();
+              renderAppointmentCard(container, appt);
+            });
+          });
+      } else {
+        // Local state display
+        const myAppts = appointments.filter(a => a.barberEmail.toLowerCase() === barber.email.toLowerCase());
+        container.innerHTML = "";
+        if (myAppts.length === 0) {
+          container.innerHTML = `<p style="color:var(--text-muted);">No appointments booked yet.</p>`;
+          return;
+        }
+        myAppts.forEach(appt => renderAppointmentCard(container, appt));
+      }
+    }
+
+    function renderAppointmentCard(container, appt) {
+      const item = document.createElement('div');
+      item.className = 'appointment-item';
+      item.innerHTML = `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <strong>${appt.date} @ ${appt.time}</strong>
+          <span class="badge-status">Confirmed</span>
+        </div>
+        <div>Client: <strong>${appt.clientName}</strong> (<a href="tel:${appt.clientPhone}" style="color:var(--gold-light);">${appt.clientPhone}</a>)</div>
+        <div style="font-size:0.85rem; color:var(--text-muted);">Service: ${appt.service}</div>
+      `;
+      container.appendChild(item);
+    }
+
+    function handleSaveQuickNote(e) {
+      e.preventDefault();
+      const newNote = document.getElementById('dash-quick-note').value;
+      const email = document.getElementById('dash-barber-email').textContent;
+      
+      const barber = barbers.find(b => b.email.toLowerCase() === email.toLowerCase());
+      if (barber) {
+        barber.note = newNote;
+        renderRoster();
+        alert("Your quick note and out-of-office status have been updated!");
+      }
+    }
+
+    function handleBarberLogout() {
+      if (isFirebaseReady) {
+        auth.signOut();
+      }
+      currentAuthUser = null;
+      document.getElementById('barber-dashboard').classList.add('hidden');
+      document.getElementById('barber-auth-box').classList.remove('hidden');
+      document.getElementById('auth-password').value = "";
+    }
+
+    // Initialize application on load
+    window.addEventListener('DOMContentLoaded', () => {
+      // Set default date input to tomorrow
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      document.getElementById('book-date').value = tomorrow.toISOString().split('T')[0];
+
+      renderRoster();
+    });
+  </script>
+</body>
+</html>
