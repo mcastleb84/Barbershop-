@@ -915,6 +915,7 @@ textarea.input{resize:vertical;font:inherit}
     $('desk-login').hidden = signedIn;
     $('login-form').hidden = signedIn || !sb;
     $('side-note').hidden = signedIn;
+    $('side-note').textContent = sb ? 'Only shop staff can sign in. Customers do not need an account.' : 'This site is not connected to its database yet. Add your Supabase details to config.js (see README.md), then reload.';
     $('desk-who').hidden = !signedIn;
     $('side-open').classList.toggle('on', signedIn);
     $('side-open-text').textContent = signedIn ? 'Barber account' : 'Barber login';
