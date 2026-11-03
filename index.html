@@ -1,791 +1,1171 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Barbershop - Appointments</title>
-  
-  <!-- Firebase Compatibility SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5e1527">
+<title>Barbershop</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: shop-sign banner with a barber-pole stripe, booking steps in the main column, weekly shop hours as a side card. */
+:root{
+  color-scheme:light;
+  --font-display:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --font-body:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --bg:#5e1527;
+  --on-bg:#fbeeee;
+  --on-bg-muted:#e6bcc3;
+  --ok-on-bg:#8fe5b3;
+  --tab-bg:rgba(255,255,255,.14);
+  --banner:rgba(0,0,0,.3);
+  --surface:#ffffff;
+  --ink:#0f1a2e;
+  --muted:#5a6579;
+  --line:#d6dce7;
+  --accent:#c4222b;
+  --accent-ink:#ffffff;
+  --blue:#1c3d7a;
+  --pole-w:#ffffff;
+  --ok:#17784a;
+  --ok-bg:#e2f4ea;
+  --warn:#9a3412;
+  --wash:#e8edf6;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#3b0d1a;--surface:#131d33;--ink:#edf0f7;--muted:#9aa6bd;--line:#26324c;
+    --accent:#ee4b54;--accent-ink:#1a0608;--blue:#7ea2ea;--pole-w:#e8ecf5;
+    --ok:#5fd596;--ok-bg:#12301f;--warn:#f0a070;--wash:#1a2640;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 
-  <style>
-    :root {
-      --maroon-dark: #2b040d;
-      --maroon-base: #4a0d18;
-      --maroon-card: #5a1220;
-      --maroon-border: #7d1c2f;
-      --maroon-hover: #691424;
-      --gold-primary: #d4af37;
-      --gold-light: #f3e5ab;
-      --gold-dark: #997b20;
-      --text-main: #f9f6f0;
-      --text-muted: #d6c5c7;
-      --danger: #ff5252;
-      --success: #2e7d32;
-    }
+.stripe{height:12px;background:repeating-linear-gradient(135deg,var(--accent) 0 12px,var(--pole-w) 12px 24px,var(--blue) 24px 36px,var(--pole-w) 36px 48px)}
+.banner{background:var(--banner);text-align:center}
+.banner-in{padding-block:26px 24px}
+.tabsrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;padding-block:18px 0}
+.side-open{border:1.5px solid var(--on-bg-muted);background:transparent;color:var(--on-bg);border-radius:10px;padding:9px 14px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
+.side-open:hover{background:var(--tab-bg)}
+.side-open .dot2{width:9px;height:9px;border-radius:50%;background:var(--ok);display:none}
+.side-open.on .dot2{display:inline-block}
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(10,5,10,.55)}
+[hidden]{display:none!important}
+.scrim[hidden]{display:none}
+.side{position:fixed;z-index:41;top:0;right:0;bottom:0;width:min(360px,92vw);background:var(--surface);color:var(--ink);box-shadow:-10px 0 36px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:16px;padding:calc(env(safe-area-inset-top,0px) + 18px) max(18px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) 18px;overflow-y:auto;transform:translateX(100%);transition:transform .25s ease;visibility:hidden}
+.side.open{transform:none;visibility:visible}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.side-head h2{margin:0;font-family:var(--font-display);font-weight:800;font-size:26px;letter-spacing:.04em;text-transform:uppercase}
+.side-close{border:0;background:var(--wash);color:var(--ink);width:36px;height:36px;border-radius:50%;font-size:22px;line-height:1}
+.side .field{max-width:none}
+.side .btn{align-self:stretch;text-align:center}
+.mark{font-family:var(--font-display);font-weight:800;font-size:clamp(48px,12vw,88px);line-height:.9;letter-spacing:.03em;text-transform:uppercase;margin:0;color:var(--on-bg)}
+.contact{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 10px;margin:10px 0 0;font-size:14px;color:var(--on-bg-muted)}
+.contact a{color:var(--on-bg);text-underline-offset:3px}
+.edit-hint{margin:8px 0 0;font-size:12px;color:var(--on-bg-muted)}
+.edit-hint:empty{display:none}
+.editable{cursor:pointer;background:none;border:0;border-bottom:1.5px dashed var(--on-bg-muted);padding:0 0 1px;margin:0;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;text-align:inherit}
+.editable:focus-visible{outline:2px solid var(--on-bg);outline-offset:3px}
+.shop-edit{margin:14px auto 0;max-width:420px;display:flex;flex-direction:column;gap:10px;text-align:left;background:var(--surface);color:var(--ink);border-radius:10px;padding:14px}
+.shop-edit[hidden]{display:none}
+.shop-edit .row{display:flex;gap:8px;flex-wrap:wrap}
+.status{display:inline-flex;align-items:center;gap:8px;margin:10px 0 0;font-size:14px;color:var(--on-bg-muted)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--on-bg-muted)}
+.status.open .dot{background:var(--ok-on-bg)}
+.status.open{color:var(--ok-on-bg)}
+.tabs{display:flex;gap:4px;background:var(--tab-bg);padding:4px;border-radius:10px}
+.tab{border:0;background:transparent;padding:9px 16px;border-radius:7px;font-weight:600;color:var(--on-bg-muted)}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(10,20,40,.18)}
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      -webkit-tap-highlight-color: transparent;
-    }
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:24px;align-items:start;padding-block:16px 48px}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;min-width:0}
+.step-h{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:.04em;text-transform:uppercase}
+.step-h .n{font-family:var(--font-mono);font-size:13px;color:var(--accent);letter-spacing:0}
+.hint{color:var(--muted);font-size:13px;margin:0}
+.empty{color:var(--muted);padding:6px 0}
 
-    body {
-      background: radial-gradient(circle at top, var(--maroon-base) 0%, var(--maroon-dark) 100%);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 16px;
-    }
+.barbers{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.bcard{display:flex;flex-direction:column;gap:2px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);min-width:0;overflow:hidden}
+.barber{display:flex;align-items:center;gap:10px;padding:10px 12px 4px;text-align:left;min-width:0;color:inherit;text-decoration:none}
+.plink{padding:0 12px 10px 60px;font-size:13px;color:var(--blue);text-underline-offset:3px}
+.bnotes{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.bnote{margin:0 0 8px;padding:9px 12px;background:var(--wash);border-radius:8px;font-size:14px;overflow-wrap:anywhere}
+.bnotes .bnote{margin:0}
+.barber .av{flex:none;width:38px;height:38px;border-radius:50%;background:var(--blue);color:var(--surface);display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:.02em}
+.barber .nm{font-weight:600;overflow-wrap:anywhere;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
+.bcard[aria-current="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.bcard[aria-current="true"] .av{background:var(--accent);color:var(--accent-ink)}
+.back{display:inline-block;margin-bottom:12px;font-size:14px;color:var(--blue);text-underline-offset:3px}
+.phead{display:flex;gap:14px;align-items:center}
+.pav{flex:none;width:68px;height:68px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:38px}
+.pname{margin:0;font-family:var(--font-display);font-weight:800;font-size:clamp(34px,8vw,46px);line-height:1;letter-spacing:.03em;text-transform:uppercase;overflow-wrap:anywhere}
+.pspec{margin:6px 0 0;color:var(--muted);font-size:14px}
+.pbio{margin:14px 0 0;max-width:62ch;white-space:pre-wrap;overflow-wrap:anywhere}
 
-    .container {
-      width: 100%;
-      max-width: 680px;
-      margin: 0 auto 30px;
-    }
+.dates{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.date{flex:none;width:70px;padding:8px 4px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);text-align:center}
+.date .dw{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.date .dn{display:block;font-family:var(--font-display);font-weight:800;font-size:28px;line-height:1.05}
+.date .dm{display:block;font-size:11px;color:var(--muted)}
+.date .ct{display:block;margin-top:4px;font-family:var(--font-mono);font-size:11px;color:var(--ok)}
+.date[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.date[aria-pressed="true"] .dw,.date[aria-pressed="true"] .dm,.date[aria-pressed="true"] .ct{color:var(--accent-ink)}
+.date:disabled{opacity:.5;cursor:not-allowed;background:var(--wash)}
+.date:disabled .ct{color:var(--muted)}
 
-    /* Header & Navigation Details */
-    header {
-      text-align: center;
-      padding: 24px 16px;
-      background: var(--maroon-card);
-      border: 1px solid var(--maroon-border);
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-      margin-bottom: 20px;
-    }
+.times{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
+.slot{padding:10px 6px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);font-family:var(--font-mono);font-weight:500;font-size:13px}
+.slot[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.slot:disabled{text-decoration:line-through;color:var(--muted);background:var(--wash);cursor:not-allowed}
 
-    h1.shop-title {
-      font-size: 2.4rem;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--gold-primary);
-      text-shadow: 0 2px 4px rgba(0,0,0,0.6);
-      margin-bottom: 8px;
-    }
+.form{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;max-width:380px}
+.field label{font-size:13px;font-weight:600}
+.input{padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);width:100%;min-width:0}
+.summary{font-family:var(--font-mono);font-size:13px;color:var(--muted);margin:0;overflow-wrap:anywhere}
+.btn{border:0;background:var(--accent);color:var(--accent-ink);padding:11px 18px;border-radius:8px;font-weight:700;align-self:flex-start}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn.small{padding:7px 12px;font-size:13px}
+.opt{font-weight:400;color:var(--muted)}
+textarea.input{resize:vertical;font:inherit}
+.bk .note{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink);font-size:14px}
+.bk a{color:var(--blue);text-underline-offset:3px}
+.msg{margin:0;font-size:14px;color:var(--warn)}
+.msg:empty{display:none}
+.okmsg{margin:0;font-size:14px;font-weight:600;color:var(--ok)}
+.okmsg:empty{display:none}
+.badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:7px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-family:var(--font-mono);font-size:11px;font-weight:600;vertical-align:1px}
+.badge[hidden]{display:none}
+.toast{position:fixed;z-index:20;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));margin:0 auto;max-width:440px;padding:12px 14px;background:var(--surface);color:var(--ink);border:1.5px solid var(--accent);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:14px;cursor:pointer}
+.toast strong{display:block;font-family:var(--font-display);font-size:18px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.toast[hidden]{display:none}
+.policy{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.done{border:1.5px solid var(--ok);background:var(--ok-bg);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.done h3{margin:0;font-family:var(--font-display);font-size:28px;letter-spacing:.04em;text-transform:uppercase;color:var(--ok)}
+.done p{margin:0}
 
-    .shop-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 10px;
-      font-size: 0.95rem;
-    }
+.hours h2{margin:0 0 10px}
+.hrs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.hrs li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.hrs li:first-child{border-top:0}
+.hrs .t{font-family:var(--font-mono);font-size:13px;text-align:right}
+.hrs .closed .t{color:var(--muted)}
+.hrs .today{font-weight:700}
+.tag{margin-left:6px;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;background:var(--accent);color:var(--accent-ink);padding:1px 5px;border-radius:4px;vertical-align:1px}
 
-    .meta-link {
-      color: var(--gold-light);
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      font-weight: 500;
-    }
-
-    .meta-link:hover, .meta-link:active {
-      color: #fff;
-      text-decoration: underline;
-    }
-
-    .hours-badge {
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px dashed var(--maroon-border);
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-top: 8px;
-      font-size: 0.88rem;
-      color: var(--text-muted);
-    }
-
-    .hours-badge strong {
-      color: var(--gold-light);
-    }
-
-    /* Navigation Mode Tabs */
-    .view-toggle {
-      display: flex;
-      background: rgba(0,0,0,0.3);
-      padding: 4px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      border: 1px solid var(--maroon-border);
-    }
-
-    .view-toggle button {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 0.95rem;
-      font-weight: 600;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .view-toggle button.active {
-      background: var(--gold-primary);
-      color: var(--maroon-dark);
-    }
-
-    /* Cards & Content Sections */
-    .card {
-      background: var(--maroon-card);
-      border: 1px solid var(--maroon-border);
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    }
-
-    .section-title {
-      font-size: 1.25rem;
-      color: var(--gold-primary);
-      border-bottom: 1px solid var(--maroon-border);
-      padding-bottom: 8px;
-      margin-bottom: 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    /* Barber Card List */
-    .barber-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .barber-item {
-      background: rgba(0,0,0,0.2);
-      border: 1px solid var(--maroon-border);
-      border-radius: 12px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .barber-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .barber-link {
-      color: var(--gold-light);
-      font-size: 1.15rem;
-      font-weight: 700;
-      text-decoration: underline;
-      cursor: pointer;
-    }
-
-    .barber-quick-note {
-      background: rgba(212, 175, 55, 0.12);
-      border-left: 3px solid var(--gold-primary);
-      padding: 6px 10px;
-      font-size: 0.85rem;
-      color: var(--gold-light);
-      border-radius: 0 6px 6px 0;
-    }
-
-    .barber-schedule-info {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
-    /* Scheduling Form */
-    .form-group {
-      margin-bottom: 14px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.88rem;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-    }
-
-    select, input, textarea {
-      width: 100%;
-      padding: 12px;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--maroon-border);
-      border-radius: 8px;
-      color: var(--text-main);
-      font-size: 1rem;
-    }
-
-    select:focus, input:focus, textarea:focus {
-      outline: none;
-      border-color: var(--gold-primary);
-    }
-
-    .btn {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      background: var(--gold-primary);
-      color: var(--maroon-dark);
-      transition: background 0.2s, transform 0.1s;
-    }
-
-    .btn:active {
-      transform: scale(0.98);
-    }
-
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--gold-primary);
-      color: var(--gold-primary);
-      margin-top: 8px;
-    }
-
-    /* Barber Portal / Appointments Ledger */
-    .appointment-item {
-      background: rgba(0, 0, 0, 0.25);
-      border-left: 4px solid var(--gold-primary);
-      padding: 12px;
-      border-radius: 6px;
-      margin-bottom: 10px;
-    }
-
-    .appointment-item strong {
-      color: var(--gold-light);
-      font-size: 1rem;
-    }
-
-    .badge-status {
-      display: inline-block;
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 12px;
-      background: var(--maroon-border);
-      color: var(--text-main);
-      margin-left: 6px;
-    }
-
-    .notice {
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 0.88rem;
-      margin-bottom: 12px;
-    }
-    .notice-info {
-      background: rgba(43, 4, 13, 0.7);
-      border: 1px solid var(--gold-dark);
-      color: var(--gold-light);
-    }
-
-    .hidden {
-      display: none !important;
-    }
-  </style>
+.deskrow{display:grid;grid-template-columns:minmax(110px,1.1fr) auto auto auto;gap:8px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.deskrow:first-child{border-top:0}
+.deskrow .d{font-weight:600}
+.deskrow .d small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.chk{display:flex;align-items:center;gap:6px;font-size:14px}
+.sel{padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);font-family:var(--font-mono);font-size:13px}
+.rowmsg{grid-column:1/-1;margin:0;font-size:13px;color:var(--warn)}
+.saved{font-size:12px;color:var(--ok);font-family:var(--font-mono)}
+.closedtxt{grid-column:2/-1;color:var(--muted);font-size:14px}
+@media (max-width:560px){
+  .deskrow{grid-template-columns:1fr 1fr}
+  .deskrow .d{grid-column:1/-1}
+  .closedtxt{grid-column:1/-1}
+}
+.addrow{display:flex;gap:8px;flex-wrap:wrap}
+.addrow .input{flex:1 1 180px;width:auto}
+.bk{list-style:none;margin:0;padding:0}
+.bk li{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.bk li:first-child{border-top:0}
+.bk .w{font-family:var(--font-mono);font-size:13px}
+.bk .who{font-weight:600;overflow-wrap:anywhere}
+.notice{background:var(--wash);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:14px;margin:0}
+.whorow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.whorow p{margin:0;overflow-wrap:anywhere}
+.loadnote{margin:0;font-size:13px;color:var(--on-bg)}
+.loadnote:empty{display:none}
+@media (prefers-reduced-motion:reduce){.side{transition:none!important}*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
 </head>
 <body>
 
-  <div class="container">
-    
-    <!-- Title & Navigation Header -->
-    <header>
-      <h1 class="shop-title">Barbershop</h1>
-      
-      <div class="shop-meta">
-        <!-- Direct GPS Navigator Link -->
-        <a class="meta-link" href="https://maps.google.com/?q=123+Main+Street,+Tampa,+FL+33602" target="_blank" rel="noopener">
-          📍 123 Main Street, Tampa, FL 33602 (Open in Maps)
-        </a>
-        <!-- Direct Phone Link -->
-        <a class="meta-link" href="tel:8135550199">
-          📞 (813) 555-0199
-        </a>
-      </div>
-
-      <div class="hours-badge">
-        <strong>Shop Hours:</strong> Tuesday – Saturday: 9:00 AM – 7:00 PM | Sun & Mon: Closed
-      </div>
-    </header>
-
-    <!-- Top Navigation Switcher -->
-    <div class="view-toggle">
-      <button id="tab-client" class="active" onclick="switchView('client')">Client Booking</button>
-      <button id="tab-barber" onclick="switchView('barber')">Barber Portal</button>
-    </div>
-
-    <!-- ================= CLIENT VIEW ================= -->
-    <div id="view-client">
-      
-      <!-- Barber Selection & Hyperlink Directory -->
-      <div class="card">
-        <h2 class="section-title">Our Barbers</h2>
-        <div class="barber-grid" id="barber-roster">
-          <!-- Rendered dynamically -->
-        </div>
-      </div>
-
-      <!-- Booking Form -->
-      <div class="card" id="booking-section">
-        <h2 class="section-title">Book an Appointment</h2>
-        
-        <form id="booking-form" onsubmit="handleBookingSubmit(event)">
-          <div class="form-group">
-            <label for="select-barber">Selected Barber</label>
-            <select id="select-barber" required onchange="onBarberSelectChanged()">
-              <option value="">-- Choose a Barber --</option>
-            </select>
-          </div>
-
-          <div id="selected-barber-note" class="form-group hidden">
-            <div class="barber-quick-note" id="booking-note-text"></div>
-          </div>
-
-          <div class="form-group">
-            <label for="book-service">Service</label>
-            <select id="book-service" required>
-              <option value="Classic Haircut ($35)">Classic Haircut ($35)</option>
-              <option value="Beard Trim & Shape ($25)">Beard Trim & Shape ($25)</option>
-              <option value="Full Haircut + Hot Towel Shave ($55)">Full Haircut + Hot Towel Shave ($55)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="book-date">Select Date</label>
-            <input type="date" id="book-date" required onchange="generateAvailableSlots()">
-          </div>
-
-          <div class="form-group">
-            <label for="book-time">Select Time Slot</label>
-            <select id="book-time" required>
-              <option value="">-- Pick a Date First --</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="client-name">Your Full Name</label>
-            <input type="text" id="client-name" placeholder="John Doe" required>
-          </div>
-
-          <div class="form-group">
-            <label for="client-phone">Phone Number</label>
-            <input type="tel" id="client-phone" placeholder="(813) 555-1234" required>
-          </div>
-
-          <button type="submit" class="btn">Confirm Appointment</button>
-        </form>
-      </div>
-
-    </div>
-
-    <!-- ================= BARBER LOGIN & PORTAL VIEW ================= -->
-    <div id="view-barber" class="hidden">
-      
-      <!-- Login Box (Shown when not authenticated) -->
-      <div class="card" id="barber-auth-box">
-        <h2 class="section-title">Barber Login</h2>
-        <div class="notice notice-info">
-          Sign in to view your scheduled clients, update out-of-office dates, and post shift notes.
-        </div>
-        <form onsubmit="handleBarberLogin(event)">
-          <div class="form-group">
-            <label for="auth-email">Barber Email</label>
-            <input type="email" id="auth-email" placeholder="e.g. marcus@barbershop.com" required>
-          </div>
-          <div class="form-group">
-            <label for="auth-password">Password</label>
-            <input type="password" id="auth-password" placeholder="••••••••" required>
-          </div>
-          <button type="submit" class="btn">Sign In to Schedule</button>
-        </form>
-      </div>
-
-      <!-- Protected Barber Dashboard (Shown after authentication) -->
-      <div id="barber-dashboard" class="hidden">
-        
-        <div class="card">
-          <div class="section-title">
-            <span id="dash-barber-name">Barber Dashboard</span>
-            <button class="btn btn-secondary" style="width: auto; padding: 4px 10px; font-size: 0.8rem;" onclick="handleBarberLogout()">Logout</button>
-          </div>
-          <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 12px;">
-            Logged in as: <span id="dash-barber-email" style="color: var(--gold-light);"></span>
-          </p>
-
-          <!-- Quick Note & Out of Office Updates -->
-          <form onsubmit="handleSaveQuickNote(event)">
-            <div class="form-group">
-              <label for="dash-quick-note">My Quick Note / Out-of-Office Notice</label>
-              <textarea id="dash-quick-note" rows="2" placeholder="e.g., Leaving at 2 PM this Friday; Off next Tuesday"></textarea>
-            </div>
-            <button type="submit" class="btn" style="padding: 10px;">Update Status Note</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h2 class="section-title">My Scheduled Appointments</h2>
-          <div id="appointments-list">
-            <p style="color: var(--text-muted);">No appointments booked yet.</p>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="side" id="side" role="dialog" aria-modal="true" aria-labelledby="side-title">
+  <div class="side-head">
+    <h2 id="side-title">Barber login</h2>
+    <button class="side-close" id="side-close" type="button" aria-label="Close sidebar">&times;</button>
   </div>
+  <form class="form" id="login-form">
+    <div class="field">
+      <label for="login-email">Email</label>
+      <input class="input" id="login-email" type="email" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="login-pass">Password</label>
+      <input class="input" id="login-pass" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn" id="login-btn" type="submit">Sign in</button>
+    <p class="msg" id="login-msg" role="status"></p>
+  </form>
+  <div id="desk-who" class="form" hidden>
+    <p style="margin:0;overflow-wrap:anywhere">Signed in as <strong id="who-email"></strong></p>
+    <button class="btn" id="go-desk" type="button">Open barber desk</button>
+    <button class="btn ghost" id="logout-btn" type="button">Sign out</button>
+  </div>
+  <p class="hint" id="side-note">Only shop staff can sign in. Customers do not need an account.</p>
+</aside>
+<div class="stripe" aria-hidden="true"></div>
+<header class="banner">
+  <div class="wrap banner-in">
+    <h1 class="mark" id="shop-name">Barbershop</h1>
+    <p class="contact" id="contact"></p>
+    <p class="edit-hint" id="edit-hint"></p>
+    <form class="shop-edit" id="shop-edit" hidden>
+      <div class="field"><label for="se-name">Business name</label><input class="input" id="se-name" maxlength="40" required></div>
+      <div class="field"><label for="se-address">Address</label><input class="input" id="se-address" maxlength="120" required></div>
+      <div class="field"><label for="se-phone">Phone number</label><input class="input" id="se-phone" maxlength="30" inputmode="tel" required></div>
+      <p class="msg" id="se-msg" role="status"></p>
+      <div class="row"><button class="btn small" type="submit" id="se-save">Save</button><button class="btn ghost small" type="button" id="se-cancel">Cancel</button></div>
+    </form>
+    <p class="status" id="status"><span class="dot"></span><span id="status-text"></span></p>
+  </div>
+</header>
+<div class="stripe" aria-hidden="true"></div>
+<div class="wrap tabsrow">
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" id="tab-book" aria-selected="true">Book a cut</button>
+    <button class="tab" role="tab" id="tab-barber" aria-selected="false">Barber desk<span class="badge" id="badge" hidden></span></button>
+  </nav>
+  <button class="side-open" id="side-open" type="button" aria-haspopup="dialog" aria-controls="side" aria-expanded="false"><span class="dot2" aria-hidden="true"></span><span id="side-open-text">Barber login</span></button>
+</div>
 
-  <script>
-    /* ==========================================================
-       1. FIREBASE CONFIGURATION
-       Replace the placeholder values below with your keys from:
-       Firebase Console -> Project Settings -> General -> Your apps (Web)
-       ========================================================== */
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT_ID.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
+<div class="wrap grid">
+  <main class="main">
+    <p class="loadnote" id="loadnote" role="status"></p>
 
-    let isFirebaseReady = false;
-    let auth = null;
-    let db = null;
-
-    if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-      try {
-        firebase.initializeApp(firebaseConfig);
-        auth = firebase.auth();
-        db = firebase.firestore();
-        isFirebaseReady = true;
-      } catch (err) {
-        console.warn("Firebase initialization skipped:", err);
-      }
-    }
-
-    /* ==========================================================
-       2. LOCAL STATE / DEMO FALLBACK
-       Ensures the application functions seamlessly even before
-       Firebase credentials are plugged in.
-       ========================================================== */
-    let barbers = [
-      {
-        id: "marcus",
-        name: "Marcus Vance",
-        email: "marcus@barbershop.com",
-        title: "Master Barber",
-        hours: "Tue - Sat: 9:00 AM - 6:00 PM",
-        note: "Leaving early at 3:00 PM on Friday for personal appointment."
-      },
-      {
-        id: "leo",
-        name: "Leo Rossi",
-        email: "leo@barbershop.com",
-        title: "Senior Stylist",
-        hours: "Wed - Sat: 10:00 AM - 7:00 PM",
-        note: "Out of office Nov 4 - Nov 6 for barber expo."
-      },
-      {
-        id: "sarah",
-        name: "Sarah Jenkins",
-        email: "sarah@barbershop.com",
-        title: "Fades & Styling Specialist",
-        hours: "Tue - Fri: 9:00 AM - 5:00 PM",
-        note: "Fully booked this Thursday morning."
-      }
-    ];
-
-    let appointments = JSON.parse(localStorage.getItem("barbershop_appts") || "[]");
-    let currentAuthUser = null;
-
-    /* ==========================================================
-       3. VIEW CONTROLLER & NAVIGATION
-       ========================================================== */
-    function switchView(viewName) {
-      document.getElementById('view-client').classList.toggle('hidden', viewName !== 'client');
-      document.getElementById('view-barber').classList.toggle('hidden', viewName !== 'barber');
-      
-      document.getElementById('tab-client').classList.toggle('active', viewName === 'client');
-      document.getElementById('tab-barber').classList.toggle('active', viewName === 'barber');
-    }
-
-    function scheduleWithBarber(barberId) {
-      switchView('client');
-      const select = document.getElementById('select-barber');
-      select.value = barberId;
-      onBarberSelectChanged();
-      document.getElementById('booking-section').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    /* ==========================================================
-       4. CLIENT ROSTER & SCHEDULING UI
-       ========================================================== */
-    function renderRoster() {
-      const rosterContainer = document.getElementById('barber-roster');
-      const selectBarber = document.getElementById('select-barber');
-      
-      rosterContainer.innerHTML = '';
-      selectBarber.innerHTML = '<option value="">-- Choose a Barber --</option>';
-
-      barbers.forEach(barber => {
-        // Build Barber Card with Hyperlink
-        const card = document.createElement('div');
-        card.className = 'barber-item';
-        card.innerHTML = `
-          <div class="barber-header">
-            <!-- Scheduling time hyperlink directly attached to barber's name -->
-            <a class="barber-link" href="#booking-section" onclick="scheduleWithBarber('${barber.id}')">
-              ${barber.name} ➔
-            </a>
-            <span style="font-size:0.8rem; color:var(--gold-primary);">${barber.title}</span>
+    <section id="view-book" class="main" aria-label="Book an appointment">
+      <div class="panel" id="profile-card" hidden></div>
+      <div class="panel" id="choose-panel">
+        <h2 class="step-h"><span class="n">1</span>Choose your barber</h2>
+        <p class="hint" style="margin-bottom:10px">Select a barber's name to jump to their days and times.</p>
+        <div class="barbers" id="barbers"></div>
+        <div id="bnotes"></div>
+      </div>
+      <div class="panel" id="dates-panel">
+        <h2 class="step-h"><span class="n" id="n-day">2</span>Pick a day</h2>
+        <div class="dates" id="dates"></div>
+      </div>
+      <div class="panel" id="times-panel">
+        <h2 class="step-h"><span class="n" id="n-time">3</span>Pick a time</h2>
+        <div id="times"></div>
+      </div>
+      <div class="panel" id="confirm-panel">
+        <h2 class="step-h"><span class="n" id="n-confirm">4</span>Confirm</h2>
+        <div id="confirmed" hidden></div>
+        <div class="form" id="form">
+          <div class="field">
+            <label for="cust-name">Your name</label>
+            <input class="input" id="cust-name" type="text" maxlength="60" autocomplete="name" placeholder="First and last name">
           </div>
-          <div class="barber-schedule-info">📅 Schedule: ${barber.hours}</div>
-          ${barber.note ? `<div class="barber-quick-note">⚠️ Note: ${barber.note}</div>` : ''}
-        `;
-        rosterContainer.appendChild(card);
-
-        // Populate Select Dropdown
-        const opt = document.createElement('option');
-        opt.value = barber.id;
-        opt.textContent = barber.name;
-        selectBarber.appendChild(opt);
-      });
-    }
-
-    function onBarberSelectChanged() {
-      const barberId = document.getElementById('select-barber').value;
-      const noteBox = document.getElementById('selected-barber-note');
-      const noteText = document.getElementById('booking-note-text');
-      
-      const selected = barbers.find(b => b.id === barberId);
-      if (selected && selected.note) {
-        noteText.textContent = `${selected.name}'s Note: ${selected.note}`;
-        noteBox.classList.remove('hidden');
-      } else {
-        noteBox.classList.add('hidden');
-      }
-      generateAvailableSlots();
-    }
-
-    function generateAvailableSlots() {
-      const dateVal = document.getElementById('book-date').value;
-      const timeSelect = document.getElementById('book-time');
-      const barberId = document.getElementById('select-barber').value;
-      
-      timeSelect.innerHTML = '';
-
-      if (!dateVal) {
-        timeSelect.innerHTML = '<option value="">-- Select Date First --</option>';
-        return;
-      }
-
-      // Check shop closed days (Sunday = 0, Monday = 1)
-      const selectedDate = new Date(dateVal + 'T00:00:00');
-      const day = selectedDate.getDay();
-      if (day === 0 || day === 1) {
-        timeSelect.innerHTML = '<option value="">Shop is closed on Sun & Mon</option>';
-        return;
-      }
-
-      const standardSlots = [
-        "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", 
-        "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM"
-      ];
-
-      // Filter slots that are already booked for this barber on this date
-      const bookedTimes = appointments
-        .filter(a => a.barberId === barberId && a.date === dateVal)
-        .map(a => a.time);
-
-      const availableSlots = standardSlots.filter(t => !bookedTimes.includes(t));
-
-      if (availableSlots.length === 0) {
-        timeSelect.innerHTML = '<option value="">No open times available</option>';
-        return;
-      }
-
-      timeSelect.innerHTML = '<option value="">-- Pick an Available Time --</option>';
-      availableSlots.forEach(slot => {
-        const opt = document.createElement('option');
-        opt.value = slot;
-        opt.textContent = slot;
-        timeSelect.appendChild(opt);
-      });
-    }
-
-    function handleBookingSubmit(e) {
-      e.preventDefault();
-      const barberId = document.getElementById('select-barber').value;
-      const barber = barbers.find(b => b.id === barberId);
-      const service = document.getElementById('book-service').value;
-      const date = document.getElementById('book-date').value;
-      const time = document.getElementById('book-time').value;
-      const clientName = document.getElementById('client-name').value;
-      const clientPhone = document.getElementById('client-phone').value;
-
-      if (!time) {
-        alert("Please select a valid time slot.");
-        return;
-      }
-
-      const newAppointment = {
-        barberId: barber.id,
-        barberEmail: barber.email,
-        barberName: barber.name,
-        service: service,
-        date: date,
-        time: time,
-        clientName: clientName,
-        clientPhone: clientPhone,
-        createdAt: new Date().toISOString()
-      };
-
-      if (isFirebaseReady) {
-        db.collection("appointments").add(newAppointment).then(() => {
-          alert(`Appointment Confirmed with ${barber.name} on ${date} at ${time}!`);
-          document.getElementById('booking-form').reset();
-          generateAvailableSlots();
-        }).catch(err => alert("Error saving booking: " + err.message));
-      } else {
-        // Local storage demo fallback
-        appointments.push(newAppointment);
-        localStorage.setItem("barbershop_appts", JSON.stringify(appointments));
-        alert(`Appointment Confirmed with ${barber.name} on ${date} at ${time}!`);
-        document.getElementById('booking-form').reset();
-        generateAvailableSlots();
-      }
-    }
-
-    /* ==========================================================
-       5. BARBER PORTAL, AUTHENTICATION & QUICK NOTES
-       ========================================================== */
-    function handleBarberLogin(e) {
-      e.preventDefault();
-      const email = document.getElementById('auth-email').value.trim().toLowerCase();
-      const password = document.getElementById('auth-password').value;
-
-      if (isFirebaseReady) {
-        auth.signInWithEmailAndPassword(email, password)
-          .then(cred => {
-            currentAuthUser = cred.user;
-            showBarberDashboard(email);
-          })
-          .catch(err => alert("Login Failed: " + err.message));
-      } else {
-        // Fallback demo login: matches any email from the barbers roster
-        const barberMatch = barbers.find(b => b.email.toLowerCase() === email);
-        if (barberMatch) {
-          currentAuthUser = { email: barberMatch.email };
-          showBarberDashboard(barberMatch.email);
-        } else {
-          alert("Barber email not recognized. Use marcus@barbershop.com or configure Firebase.");
-        }
-      }
-    }
-
-    function showBarberDashboard(email) {
-      document.getElementById('barber-auth-box').classList.add('hidden');
-      document.getElementById('barber-dashboard').classList.remove('hidden');
-      
-      const barber = barbers.find(b => b.email.toLowerCase() === email.toLowerCase()) || {
-        name: "Barber",
-        email: email,
-        note: ""
-      };
-
-      document.getElementById('dash-barber-name').textContent = barber.name;
-      document.getElementById('dash-barber-email').textContent = barber.email;
-      document.getElementById('dash-quick-note').value = barber.note || "";
-
-      loadBarberAppointments(barber);
-    }
-
-    function loadBarberAppointments(barber) {
-      const container = document.getElementById('appointments-list');
-
-      if (isFirebaseReady) {
-        db.collection("appointments")
-          .where("barberEmail", "==", barber.email)
-          .onSnapshot(snapshot => {
-            container.innerHTML = "";
-            if (snapshot.empty) {
-              container.innerHTML = `<p style="color:var(--text-muted);">No appointments booked yet.</p>`;
-              return;
-            }
-            snapshot.forEach(doc => {
-              const appt = doc.data();
-              renderAppointmentCard(container, appt);
-            });
-          });
-      } else {
-        // Local state display
-        const myAppts = appointments.filter(a => a.barberEmail.toLowerCase() === barber.email.toLowerCase());
-        container.innerHTML = "";
-        if (myAppts.length === 0) {
-          container.innerHTML = `<p style="color:var(--text-muted);">No appointments booked yet.</p>`;
-          return;
-        }
-        myAppts.forEach(appt => renderAppointmentCard(container, appt));
-      }
-    }
-
-    function renderAppointmentCard(container, appt) {
-      const item = document.createElement('div');
-      item.className = 'appointment-item';
-      item.innerHTML = `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-          <strong>${appt.date} @ ${appt.time}</strong>
-          <span class="badge-status">Confirmed</span>
+          <div class="field">
+            <label for="cust-phone">Phone number <span class="opt">(optional)</span></label>
+            <input class="input" id="cust-phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" placeholder="(555) 555-0123">
+          </div>
+          <div class="field">
+            <label for="cust-note">Note for your barber <span class="opt">(optional)</span></label>
+            <textarea class="input" id="cust-note" rows="3" maxlength="200" placeholder="The cut you want, or anything your barber should know"></textarea>
+          </div>
+          <p class="summary" id="summary"></p>
+          <button class="btn" id="book-btn" type="button" disabled>Book appointment</button>
+          <p class="msg" id="book-msg" role="status"></p>
         </div>
-        <div>Client: <strong>${appt.clientName}</strong> (<a href="tel:${appt.clientPhone}" style="color:var(--gold-light);">${appt.clientPhone}</a>)</div>
-        <div style="font-size:0.85rem; color:var(--text-muted);">Service: ${appt.service}</div>
-      `;
-      container.appendChild(item);
-    }
+        <p class="policy">Need to cancel? Please notify us at least 24 hours before your appointment.</p>
+      </div>
+      <div class="panel" id="cancel-panel">
+        <h2 class="step-h">Cancel an appointment</h2>
+        <p class="hint" style="margin-bottom:10px">Enter the name you booked under to see your upcoming appointments.</p>
+        <div class="form">
+          <div class="field" style="max-width:300px">
+            <label for="cancel-name">Name</label>
+            <input class="input" id="cancel-name" type="text" maxlength="60" autocomplete="name">
+          </div>
+          <button class="btn ghost small" id="find-btn" type="button">Find my appointments</button>
+          <p class="msg" id="cancel-msg" role="status"></p>
+          <p class="okmsg" id="cancel-ok" role="status"></p>
+          <div id="found"></div>
+        </div>
+      </div>
+    </section>
 
-    function handleSaveQuickNote(e) {
-      e.preventDefault();
-      const newNote = document.getElementById('dash-quick-note').value;
-      const email = document.getElementById('dash-barber-email').textContent;
-      
-      const barber = barbers.find(b => b.email.toLowerCase() === email.toLowerCase());
-      if (barber) {
-        barber.note = newNote;
-        renderRoster();
-        alert("Your quick note and out-of-office status have been updated!");
+    <section id="view-barber" class="main" aria-label="Barber desk" hidden>
+      <div class="panel" id="desk-login">
+        <h2 class="step-h">Barber desk</h2>
+        <p class="hint" style="margin-bottom:12px">Barbers sign in from the Barber login sidebar to manage availability, notes and bookings.</p>
+        <button class="btn" id="desk-open-side" type="button">Open Barber login</button>
+      </div>
+      <div class="panel" id="desk-gate" hidden>
+        <p class="notice">This account is not linked to a barber yet. Ask the shop owner to link it, then sign in again.</p>
+      </div>
+      <div class="panel" id="desk-top" hidden>
+        <h2 class="step-h">Your availability</h2>
+        <div class="field" style="max-width:260px">
+          <label for="desk-barber">Barber</label>
+          <select class="sel" id="desk-barber"></select>
+        </div>
+        <div id="desk-add" style="margin-top:14px" hidden>
+          <label for="new-barber" class="hint">Add a barber to the shop</label>
+          <div class="addrow" style="margin-top:6px">
+            <input class="input" id="new-barber" type="text" maxlength="40" placeholder="Barber name">
+            <button class="btn small" id="add-barber" type="button">Add barber</button>
+          </div>
+          <p class="msg" id="add-msg" role="status"></p>
+        </div>
+      </div>
+      <div class="panel" id="desk-activity" hidden>
+        <h2 class="step-h">Recent activity</h2>
+        <p class="hint" style="margin-bottom:10px">New bookings and cancellations appear here. Keep this page open to get alerts.</p>
+        <div class="field" style="max-width:260px;margin-bottom:6px">
+          <label for="act-filter">Alert me about</label>
+          <select class="sel" id="act-filter"></select>
+        </div>
+        <ul class="bk" id="act-list"></ul>
+      </div>
+      <div class="panel" id="desk-profile" hidden>
+        <h2 class="step-h">Your profile</h2>
+        <p class="hint" style="margin-bottom:10px">Customers see this when they open a barber's name on the booking page.</p>
+        <div class="form">
+          <div class="field" style="max-width:480px">
+            <label for="prof-spec">Specialties</label>
+            <input class="input" id="prof-spec" type="text" maxlength="80" placeholder="Fades, beard trims, hot towel shaves">
+          </div>
+          <div class="field" style="max-width:480px">
+            <label for="prof-bio">About</label>
+            <textarea class="input" id="prof-bio" rows="4" maxlength="300" placeholder="A few sentences about your style and experience"></textarea>
+          </div>
+          <button class="btn small" id="save-prof" type="button">Save profile</button>
+          <p class="msg" id="prof-msg" role="status"></p>
+          <p class="okmsg" id="prof-ok" role="status"></p>
+          <a class="back" id="prof-link" href="#book" style="margin:0">View public profile</a>
+        </div>
+      </div>
+      <div class="panel" id="desk-notes" hidden>
+        <h2 class="step-h">Notes for customers</h2>
+        <p class="hint" style="margin-bottom:10px">Post out-of-office dates or an early finish. Customers see the note on the booking page. Also change availability for those days so nobody can book them.</p>
+        <div id="desk-notes-form" class="form">
+          <div class="field" style="max-width:480px">
+            <label for="note-text">Note</label>
+            <input class="input" id="note-text" type="text" maxlength="120" placeholder="Out of office, or leaving at 3:00 PM">
+          </div>
+          <div class="addrow">
+            <div class="field" style="max-width:190px">
+              <label for="note-from">From (optional)</label>
+              <input class="input" id="note-from" type="date">
+            </div>
+            <div class="field" style="max-width:190px">
+              <label for="note-to">Through (optional)</label>
+              <input class="input" id="note-to" type="date">
+            </div>
+          </div>
+          <button class="btn small" id="add-note" type="button">Post note</button>
+          <p class="msg" id="note-msg" role="status"></p>
+        </div>
+        <ul class="bk" id="dn-list" style="margin-top:8px"></ul>
+      </div>
+      <div class="panel" id="desk-days" hidden>
+        <h2 class="step-h">Days available for clients</h2>
+        <p class="hint" style="margin-bottom:6px">Pick a window inside shop hours for each day, then save that day.</p>
+        <div id="deskrows"></div>
+      </div>
+      <div class="panel" id="desk-bookings" hidden>
+        <h2 class="step-h">Upcoming appointments</h2>
+        <ul class="bk" id="bk"></ul>
+      </div>
+    </section>
+  </main>
+
+  <aside class="panel hours" aria-label="Shop hours">
+    <h2 class="step-h">Shop hours</h2>
+    <ul class="hrs" id="hrs"></ul>
+    <p class="hint" style="margin-top:10px">Appointments run in 30 minute slots.</p>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  var SLOT = 30;
+  var CFG = window.BARBERSHOP_CONFIG || {};
+  // Defaults shown until the database answers. The real values come from shop_settings and shop_hours.
+  var SHOP = {name:'Barbershop', address:'123 Main Street, Anytown, NY 12345', phone:'(555) 555-0123'};
+  // Day index 0 = Sunday. Minutes since midnight: [open, close]. null = closed.
+  var HOURS = {0:null,1:null,2:[540,1080],3:[540,1080],4:[540,1080],5:[540,1080],6:[480,960]};
+  var DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var DOWS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function $(id){ return document.getElementById(id); }
+  function h(tag, attrs){
+    var e = document.createElement(tag);
+    attrs = attrs || {};
+    for (var k in attrs){
+      var v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k.indexOf('on') === 0) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v === true ? '' : v);
+    }
+    for (var i = 2; i < arguments.length; i++){
+      var c = arguments[i];
+      if (c == null || c === false) continue;
+      if (Array.isArray(c)){ c.forEach(function(x){ if (x != null && x !== false) e.append(x.nodeType ? x : document.createTextNode(x)); }); }
+      else e.append(c.nodeType ? c : document.createTextNode(c));
+    }
+    return e;
+  }
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function keyOf(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function parseKey(k){ var p = k.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+  function fmtMin(m){ var hh = Math.floor(m/60), mm = m%60; return (hh%12||12)+':'+pad(mm)+' '+(hh>=12?'PM':'AM'); }
+  function fmtDay(k){ var d = parseKey(k); return DOWS[d.getDay()]+', '+MON[d.getMonth()]+' '+d.getDate(); }
+  function days(){ var t = new Date(), out = []; for (var i=0;i<14;i++) out.push(keyOf(new Date(t.getFullYear(), t.getMonth(), t.getDate()+i))); return out; }
+  function shopWindow(k){ return HOURS[parseKey(k).getDay()]; }
+  function nowMin(){ var n = new Date(); return n.getHours()*60+n.getMinutes(); }
+  function initial(s){ return (s.trim().charAt(0)||'?').toUpperCase(); }
+
+  var sb = null, session = null, staff = null, canEdit = false, isAdmin = false;
+  var barbers = [], avail = {}, bookings = {}, notes = [], staffBookings = [];
+  var loaded = false, lastSig = '';
+  var selBarber = null, selDate = null, selTime = null, confirmed = null, busy = false;
+  var tab = 'book', deskBarber = null, drafts = {}, armed = {};
+
+  function openShopEdit(focusId){
+    $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone;
+    $('se-msg').textContent = '';
+    $('shop-edit').hidden = false;
+    $('shop-name').scrollIntoView({block:'nearest'});
+    $(focusId || 'se-name').focus();
+  }
+  function renderContact(){
+    var nm = $('shop-name'); nm.textContent = '';
+    document.title = SHOP.name;
+    var c = $('contact'); c.textContent = '';
+    if (isAdmin){
+      nm.append(h('button',{class:'editable',type:'button','aria-label':'Edit business name',onclick:function(){ openShopEdit('se-name'); }}, SHOP.name));
+      c.append(
+        h('button',{class:'editable',type:'button','aria-label':'Edit address',onclick:function(){ openShopEdit('se-address'); }}, SHOP.address),
+        h('span',{'aria-hidden':'true'}, '·'),
+        h('button',{class:'editable',type:'button','aria-label':'Edit phone number',onclick:function(){ openShopEdit('se-phone'); }}, SHOP.phone));
+      $('edit-hint').textContent = 'Owner: tap the name, address or phone number to change it.';
+    } else {
+      nm.textContent = SHOP.name;
+      c.append(
+        h('a',{href:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(SHOP.address), target:'_blank', rel:'noopener'}, SHOP.address),
+        h('span',{'aria-hidden':'true'}, '·'),
+        h('a',{href:'tel:'+SHOP.phone.replace(/[^\d+]/g,'')}, SHOP.phone));
+      $('edit-hint').textContent = '';
+      $('shop-edit').hidden = true;
+    }
+  }
+  async function saveShop(e){
+    e.preventDefault();
+    var msg = $('se-msg'); msg.textContent = '';
+    var v = {name:$('se-name').value.trim(), address:$('se-address').value.trim(), phone:$('se-phone').value.trim()};
+    if (!v.name || !v.address || !v.phone){ msg.textContent = 'Fill in all three fields.'; return; }
+    if (!sb || !isAdmin){ msg.textContent = 'Sign in as the owner to change this.'; return; }
+    $('se-save').disabled = true;
+    try {
+      var r = await sb.from('shop_settings').update(v).eq('id', 1).select('id');
+      if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
+      SHOP.name = v.name; SHOP.address = v.address; SHOP.phone = v.phone;
+      $('shop-edit').hidden = true; renderContact();
+    } catch(err){ msg.textContent = 'Could not save. Sign in again and retry.'; }
+    $('se-save').disabled = false;
+  }
+
+  /* ---------- shop status + hours ---------- */
+  function renderStatus(){
+    var n = new Date(), w = HOURS[n.getDay()], m = nowMin(), text, open = false;
+    if (w && m >= w[0] && m < w[1]){ open = true; text = 'Open now, until '+fmtMin(w[1]); }
+    else {
+      for (var i=0;i<8;i++){
+        var d = new Date(n.getFullYear(), n.getMonth(), n.getDate()+i), ww = HOURS[d.getDay()];
+        if (!ww) continue;
+        if (i === 0 && m >= ww[0]) continue;
+        text = 'Closed. Opens '+(i===0?'today':i===1?'tomorrow':DOW[d.getDay()])+' at '+fmtMin(ww[0]);
+        break;
       }
     }
-
-    function handleBarberLogout() {
-      if (isFirebaseReady) {
-        auth.signOut();
-      }
-      currentAuthUser = null;
-      document.getElementById('barber-dashboard').classList.add('hidden');
-      document.getElementById('barber-auth-box').classList.remove('hidden');
-      document.getElementById('auth-password').value = "";
-    }
-
-    // Initialize application on load
-    window.addEventListener('DOMContentLoaded', () => {
-      // Set default date input to tomorrow
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      document.getElementById('book-date').value = tomorrow.toISOString().split('T')[0];
-
-      renderRoster();
+    $('status').className = 'status'+(open?' open':'');
+    $('status-text').textContent = text || 'Closed';
+  }
+  function renderHours(){
+    var ul = $('hrs'); ul.textContent = '';
+    var today = new Date().getDay();
+    [1,2,3,4,5,6,0].forEach(function(d){
+      var w = HOURS[d];
+      ul.append(h('li', {class:(w?'':'closed ')+(d===today?'today':'')},
+        h('span', {}, DOW[d], d===today ? h('span',{class:'tag'},'Today') : null),
+        h('span', {class:'t'}, w ? fmtMin(w[0])+' – '+fmtMin(w[1]) : 'Closed')));
     });
-  </script>
+  }
+
+  /* ---------- availability logic ---------- */
+  function windowFor(bid, k){
+    var shop = shopWindow(k), a = avail[bid+'_'+k];
+    if (!shop || !a) return null;
+    var s = Math.max(shop[0], a.start), e = Math.min(shop[1], a.end);
+    return e > s ? [s,e] : null;
+  }
+  function slotsFor(bid, k){
+    var w = windowFor(bid, k), out = [];
+    if (!w) return out;
+    var today = keyOf(new Date()), nm = nowMin();
+    for (var m = w[0]; m + SLOT <= w[1]; m += SLOT){
+      if (k === today && m <= nm) continue;
+      out.push({m:m, booked: !!bookings[bid+'_'+k+'_'+m]});
+    }
+    return out;
+  }
+  function freeCount(bid, k){ return slotsFor(bid,k).filter(function(s){ return !s.booked; }).length; }
+  function firstOpenDay(bid){ var ds = days(); for (var i=0;i<ds.length;i++) if (freeCount(bid, ds[i])>0) return ds[i]; return null; }
+
+  /* ---------- barber notes ---------- */
+  function noteEnd(n){ return n.to || n.from || ''; }
+  function activeNotes(bid){
+    var t = keyOf(new Date());
+    return notes.filter(function(n){ return n.barberId === bid && (!n.from || noteEnd(n) >= t); })
+      .sort(function(a,b){ return (a.from||'') < (b.from||'') ? -1 : 1; });
+  }
+  function dayNotes(bid, k){ return notes.filter(function(n){ return n.barberId === bid && n.from && k >= n.from && k <= noteEnd(n); }); }
+  function noteWhen(n){ if (!n.from) return ''; return n.to && n.to !== n.from ? fmtDay(n.from)+' to '+fmtDay(n.to) : fmtDay(n.from); }
+  function renderBnotes(){
+    var box = $('bnotes'); box.textContent = '';
+    var pbox = $('pnotes'); if (pbox) pbox.textContent = '';
+    if (!selBarber) return;
+    var list = activeNotes(selBarber);
+    if (!list.length) return;
+    function build(){
+      return h('div',{class:'bnotes'}, list.map(function(n){
+        return h('p',{class:'bnote'}, n.from ? h('strong',{}, noteWhen(n)+': ') : null, n.text);
+      }));
+    }
+    box.append(build());
+    if (pbox) pbox.append(build());
+  }
+
+  /* ---------- barber profiles ---------- */
+  var profileId = null, profDirty = false;
+  function syncProfileSelection(){
+    if (profileId && barbers.some(function(b){ return b.id === profileId; }) && selBarber !== profileId){
+      selBarber = profileId; selDate = firstOpenDay(profileId); selTime = null; confirmed = null;
+    }
+  }
+  function renderProfile(){
+    var box = $('profile-card');
+    if (!profileId){ box.hidden = true; box.textContent = ''; return; }
+    box.hidden = false; box.textContent = '';
+    var b = barbers.filter(function(x){ return x.id === profileId; })[0];
+    if (!loaded){ box.append(h('p',{class:'empty'},'Loading profile…')); return; }
+    if (!b){
+      box.append(h('a',{class:'back',href:'#book'},'← All barbers'), h('p',{class:'empty'},'We could not find that barber.'));
+      return;
+    }
+    box.append(
+      h('a',{class:'back',href:'#book'},'← All barbers'),
+      h('div',{class:'phead'},
+        h('span',{class:'pav','aria-hidden':'true'}, initial(b.name)),
+        h('div',{}, h('h2',{class:'pname'}, b.name), b.specialties ? h('p',{class:'pspec'}, b.specialties) : null)),
+      h('p',{class:'pbio'}, b.bio || 'This barber has not added a bio yet.'),
+      h('div',{id:'pnotes'}));
+  }
+  function applyProfileMode(){
+    var found = !!profileId && loaded && barbers.some(function(b){ return b.id === profileId; });
+    $('choose-panel').hidden = !!profileId;
+    ['dates-panel','times-panel','confirm-panel'].forEach(function(id){ $(id).hidden = !!profileId && !found; });
+    $('n-day').textContent = profileId ? '1' : '2';
+    $('n-time').textContent = profileId ? '2' : '3';
+    $('n-confirm').textContent = profileId ? '3' : '4';
+    renderProfile();
+  }
+  function fillProfileFields(){
+    $('prof-link').setAttribute('href', deskBarber ? '#profile-' + deskBarber : '#book');
+    var b = barbers.filter(function(x){ return x.id === deskBarber; })[0];
+    if (!b || profDirty) return;
+    $('prof-spec').value = b.specialties || '';
+    $('prof-bio').value = b.bio || '';
+  }
+  async function saveProfile(){
+    var msg = $('prof-msg'); msg.textContent = ''; $('prof-ok').textContent = '';
+    if (!sb || !deskBarber) return;
+    try {
+      var r = await sb.from('barbers').update({specialties:$('prof-spec').value.trim(), bio:$('prof-bio').value.trim()}).eq('id', deskBarber).select('id');
+      if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
+      profDirty = false; $('prof-ok').textContent = 'Profile saved.';
+      await refresh(true);
+    } catch(e){ msg.textContent = 'Could not save. Sign in again and retry.'; }
+  }
+
+  /* ---------- activity alerts ---------- */
+  function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function lsSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+  var activity = [], knownAct = null, toastTimer = null;
+  var lastSeen = +lsGet('bs_seen') || Date.now();
+  if (!lsGet('bs_seen')) lsSet('bs_seen', String(lastSeen));
+  var seenAtOpen = lastSeen;
+  var watchBarber = lsGet('bs_filter') || '';
+
+  function ago(t){
+    var m = Math.round((Date.now() - t) / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + ' min ago';
+    var hh = Math.round(m / 60);
+    if (hh < 24) return hh + ' hr ago';
+    var d = new Date(t); return MON[d.getMonth()] + ' ' + d.getDate();
+  }
+  function evTitle(e){ return (e.type === 'booked' ? 'Booked: ' : (e.by === 'shop' ? 'Cancelled by shop: ' : 'Cancelled: ')) + (e.name || 'Customer'); }
+  function evWhen(e){ return barberName(e.barberId) + ' · ' + fmtDay(e.date) + ' · ' + fmtMin(e.start); }
+  function markSeen(){
+    var mx = lastSeen;
+    activity.forEach(function(e){ if (e.at > mx) mx = e.at; });
+    if (mx > lastSeen){ lastSeen = mx; lsSet('bs_seen', String(mx)); }
+  }
+  function updateBadge(){
+    var b = $('badge'); if (!b) return;
+    var n = 0;
+    if (canEdit && tab !== 'barber'){
+      activity.forEach(function(e){ if (e.at > lastSeen && e.by !== 'shop' && (!watchBarber || e.barberId === watchBarber)) n++; });
+    }
+    b.hidden = n === 0; b.textContent = String(n); b.setAttribute('aria-label', n + ' new');
+  }
+  function renderActFilter(){
+    var sel = $('act-filter'); sel.textContent = '';
+    if (watchBarber && !barbers.some(function(b){ return b.id === watchBarber; })) watchBarber = '';
+    sel.append(h('option',{value:'', selected:!watchBarber}, 'All barbers'));
+    barbers.forEach(function(b){ sel.append(h('option',{value:b.id, selected:b.id===watchBarber}, b.name)); });
+  }
+  function renderActivity(){
+    var ul = $('act-list'); ul.textContent = '';
+    var list = activity.filter(function(e){ return !watchBarber || e.barberId === watchBarber; }).slice(0, 20);
+    if (!list.length) ul.append(h('li',{class:'empty'}, 'No activity yet. New bookings and cancellations show up here.'));
+    list.forEach(function(e){
+      var isNew = e.at > seenAtOpen && e.by !== 'shop';
+      ul.append(h('li',{},
+        h('div',{}, h('div',{class:'who'}, evTitle(e), isNew ? h('span',{class:'tag'},'New') : null), h('div',{class:'w'}, evWhen(e)),
+          e.phone ? h('div',{class:'w'}, h('a',{href:'tel:'+e.phone.replace(/[^\d+]/g,'')}, e.phone)) : null,
+          e.note ? h('div',{class:'note'}, 'Note: '+e.note) : null),
+        h('div',{class:'w'}, ago(e.at))));
+    });
+    if (tab === 'barber') markSeen();
+    updateBadge();
+  }
+  function showToast(e){
+    var t = $('toast'); t.textContent = '';
+    t.append(h('strong',{}, e.type === 'booked' ? 'New booking' : 'Cancellation'), h('span',{}, (e.name || 'Customer') + ' · ' + evWhen(e)));
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.hidden = true; }, 9000);
+  }
+  $('toast').addEventListener('click', function(){ $('toast').hidden = true; });
+  function maybeToast(e){
+    if (!canEdit || e.by === 'shop') return;
+    if (watchBarber && e.barberId !== watchBarber) return;
+    showToast(e);
+  }
+
+  /* ---------- cancellation ---------- */
+  var cancelArmed = false, cancelErr = false, foundList = [], foundArmed = {}, foundName = '';
+  function hoursUntil(date, start){
+    var d = parseKey(date);
+    return (new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, start).getTime() - Date.now()) / 3600000;
+  }
+  async function cancelMine(id, name){
+    try {
+      var r = await sb.rpc('cancel_booking', {p_id:id, p_name:name});
+      if (r.error || !r.data) return false;
+    } catch(e){ return false; }
+    await refresh(true);
+    return true;
+  }
+  async function findBooking(){
+    var nm = $('cancel-name').value.trim();
+    var msg = $('cancel-msg'); msg.textContent = ''; $('cancel-ok').textContent = '';
+    foundList = []; foundArmed = {}; foundName = nm;
+    if (!nm){ msg.textContent = 'Enter the name you booked under.'; renderFound(); return; }
+    if (!sb){ msg.textContent = 'Cancelling is not available until the site is connected.'; renderFound(); return; }
+    try {
+      var r = await sb.rpc('find_bookings', {p_name:nm});
+      if (r.error) throw r.error;
+      foundList = (r.data || []).map(function(x){ return {id:x.id, barberId:x.barber_id, date:x.day, start:x.start_min}; });
+    } catch(e){ msg.textContent = 'Could not look up appointments. Check your connection and try again.'; renderFound(); return; }
+    if (!foundList.length) msg.textContent = 'No upcoming appointments found under that name.';
+    renderFound();
+  }
+  function renderFound(){
+    var box = $('found'); box.textContent = '';
+    foundList.forEach(function(b){
+      var soon = hoursUntil(b.date, b.start) < 24;
+      box.append(h('div',{class:'bnote'},
+        h('div',{}, barberName(b.barberId)+' · '+fmtDay(b.date)+' · '+fmtMin(b.start)),
+        soon ? h('div',{class:'hint',style:'margin-top:4px'}, 'Less than 24 hours away, which is later than our cancellation policy asks. Please also call the shop.') : null,
+        h('button',{class:'btn small',type:'button',style:'margin-top:8px',onclick:async function(){
+          if (!foundArmed[b.id]){ foundArmed[b.id] = true; renderFound(); return; }
+          var ok = await cancelMine(b.id, foundName);
+          delete foundArmed[b.id];
+          if (ok){ foundList = foundList.filter(function(x){ return x.id !== b.id; }); $('cancel-ok').textContent = 'Your appointment was cancelled.'; $('cancel-msg').textContent = ''; }
+          else $('cancel-msg').textContent = 'Could not cancel. Please call the shop.';
+          renderFound();
+        }}, foundArmed[b.id] ? 'Confirm cancellation' : 'Cancel this appointment')));
+    });
+  }
+
+  /* ---------- booking view ---------- */
+  function barberName(id){ var b = barbers.filter(function(x){ return x.id===id; })[0]; return b ? b.name : 'your barber'; }
+  function renderBarbers(){
+    var box = $('barbers'); box.textContent = '';
+    if (!loaded){ box.append(h('p',{class:'empty'},'Loading barbers…')); return; }
+    if (!barbers.length){ box.append(h('p',{class:'empty'},'No barbers are listed yet. Please check back soon.')); return; }
+    barbers.forEach(function(b){
+      box.append(h('div', {class:'bcard', 'aria-current': b.id===selBarber ? 'true' : null}, h('a', {class:'barber', href:'#book', onclick:function(e){
+        e.preventDefault();
+        selBarber = b.id; selTime = null; confirmed = null;
+        if (!selDate || freeCount(selBarber, selDate) === 0) selDate = firstOpenDay(selBarber);
+        renderBook();
+        var target = $('dates-panel');
+        if (target){
+          var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          target.scrollIntoView({behavior: calm ? 'auto' : 'smooth', block:'start'});
+        }
+      }}, h('span',{class:'av','aria-hidden':'true'}, initial(b.name)), h('span',{class:'nm'}, b.name)), h('a',{class:'plink', href:'#profile-'+b.id, 'aria-label':'View '+b.name+'\'s profile'}, 'View profile')));
+    });
+  }
+  function renderDates(){
+    var box = $('dates'); box.textContent = '';
+    if (!selBarber){ box.append(h('p',{class:'empty'},'Choose a barber first.')); return; }
+    days().forEach(function(k){
+      var d = parseKey(k), shop = shopWindow(k), n = shop ? freeCount(selBarber,k) : 0;
+      var label = !shop ? 'Closed' : (n>0 ? n+' open' : (windowFor(selBarber,k) ? 'Full' : 'Off'));
+      box.append(h('button', {class:'date', type:'button', disabled: n===0, 'aria-pressed': String(k===selDate),
+        'aria-label': fmtDay(k)+', '+label, onclick:function(){ selDate = k; selTime = null; confirmed = null; renderBook(); }},
+        h('span',{class:'dw'}, DOWS[d.getDay()]), h('span',{class:'dn'}, String(d.getDate())),
+        h('span',{class:'dm'}, MON[d.getMonth()]), h('span',{class:'ct'}, label)));
+    });
+  }
+  function renderTimes(){
+    var box = $('times'); box.textContent = '';
+    if (!selBarber){ box.append(h('p',{class:'empty'},'Choose a barber and a day to see times.')); return; }
+    if (!selDate){ box.append(h('p',{class:'empty'},'This barber has no open times in the next two weeks. Try another barber.')); return; }
+    var sl = slotsFor(selBarber, selDate), shop = shopWindow(selDate);
+    box.append(h('p',{class:'hint',style:'margin-bottom:10px'}, fmtDay(selDate)+' · shop open '+fmtMin(shop[0])+' – '+fmtMin(shop[1])));
+    dayNotes(selBarber, selDate).forEach(function(n){ box.append(h('p',{class:'bnote'}, barberName(selBarber)+': '+n.text)); });
+    var g = h('div',{class:'times'});
+    sl.forEach(function(s){
+      g.append(h('button',{class:'slot', type:'button', disabled:s.booked, 'aria-pressed':String(s.m===selTime), onclick:function(){
+        selTime = s.m; confirmed = null; renderBook();
+      }}, fmtMin(s.m)));
+    });
+    box.append(g);
+  }
+  function updateForm(){
+    if (confirmed){
+      $('form').hidden = true; $('confirmed').hidden = false;
+      var c = $('confirmed'); c.textContent = '';
+      c.append(h('div',{class:'done'},
+        h('h3',{},'You are booked'),
+        h('p',{}, confirmed.name+', see you '+fmtDay(confirmed.date)+' at '+fmtMin(confirmed.start)+'.'),
+        h('p',{class:'hint'}, 'Barber: '+barberName(confirmed.barberId)),
+        cancelArmed && hoursUntil(confirmed.date, confirmed.start) < 24
+          ? h('p',{class:'hint'}, 'This is less than 24 hours before your appointment, which is later than our cancellation policy asks. Please also call the shop.') : null,
+        cancelErr ? h('p',{class:'msg'}, 'Could not cancel. Please call the shop.') : null,
+        h('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px'},
+          h('button',{class:'btn ghost small',type:'button',onclick:function(){
+            confirmed = null; selTime = null; cancelArmed = false; cancelErr = false; $('cust-name').value = ''; $('cust-phone').value = ''; $('cust-note').value = ''; renderBook();
+          }},'Book another'),
+          h('button',{class:'btn ghost small',type:'button',onclick:async function(){
+            if (!cancelArmed){ cancelArmed = true; cancelErr = false; updateForm(); return; }
+            var ok = await cancelMine(confirmed.id, confirmed.name);
+            cancelArmed = false;
+            if (ok){ confirmed = null; selTime = null; cancelErr = false; setBookMsg('Your appointment was cancelled.'); renderBook(); }
+            else { cancelErr = true; updateForm(); }
+          }}, cancelArmed ? 'Confirm cancellation' : 'Cancel appointment'))));
+      return;
+    }
+    $('form').hidden = false; $('confirmed').hidden = true;
+    var ready = selBarber && selDate && selTime != null;
+    $('summary').textContent = ready ? barberName(selBarber)+' · '+fmtDay(selDate)+' · '+fmtMin(selTime) : 'Choose a barber, day and time above.';
+    $('book-btn').disabled = !(ready && $('cust-name').value.trim()) || busy || !sb;
+  }
+  function renderBook(){ applyProfileMode(); renderBarbers(); renderBnotes(); renderDates(); renderTimes(); updateForm(); renderFound(); }
+
+  function setBookMsg(t){ $('book-msg').textContent = t || ''; }
+  async function confirmBooking(){
+    var nm = $('cust-name').value.trim();
+    if (!sb || !selBarber || !selDate || selTime == null || !nm || busy) return;
+    busy = true; setBookMsg(''); updateForm();
+    var ph = $('cust-phone').value.trim(), nt = $('cust-note').value.trim();
+    var taken = false, failed = null, made = {barberId:selBarber, date:selDate, start:selTime, name:nm};
+    try {
+      var r = await sb.rpc('book_appointment', {p_barber:made.barberId, p_day:made.date, p_start:made.start, p_name:made.name, p_phone:ph, p_note:nt});
+      if (r.error){
+        var m = r.error.message || '';
+        if (m.indexOf('slot_taken') >= 0) taken = true;
+        else if (m.indexOf('invalid_phone') >= 0) failed = 'That phone number does not look right. Fix it, or leave it blank.';
+        else if (m.indexOf('invalid_note') >= 0) failed = 'Your note is too long. Keep it under 200 characters.';
+        else if (m.indexOf('in_past') >= 0) failed = 'That time has already passed. Pick a later one.';
+        else if (/barber_unavailable|shop_closed|too_far/.test(m)) failed = 'That time is no longer available. Pick another one.';
+        else failed = 'The booking did not go through. Check your connection and try again.';
+      } else { made.id = r.data; confirmed = made; cancelArmed = false; cancelErr = false; }
+    } catch(e){ failed = 'The booking did not go through. Check your connection and try again.'; }
+    busy = false;
+    await refresh(true);
+    if (taken){ selTime = null; setBookMsg('Someone just took that time. Pick another one.'); }
+    else if (failed){ setBookMsg(failed); }
+    renderBook();
+  }
+
+  /* ---------- barber desk ---------- */
+  function getDraft(k){
+    var id = deskBarber+'_'+k, d = drafts[id], a = avail[id], sw = shopWindow(k);
+    if (!d || !d.dirty){
+      d = drafts[id] = {on:!!a, start:a?a.start:sw[0], end:a?a.end:sw[1], dirty:false, err:d&&d.err, saving:d&&d.saving};
+    }
+    return d;
+  }
+  function timeSelect(val, from, to, onchange, label){
+    var s = h('select',{class:'sel','aria-label':label, onchange:onchange});
+    for (var m = from; m <= to; m += SLOT) s.append(h('option',{value:String(m), selected: m===val}, fmtMin(m)));
+    return s;
+  }
+  async function saveDay(k){
+    var d = getDraft(k);
+    if (d.on && d.end <= d.start){ d.err = 'The end time must be after the start time.'; renderDeskRows(); return; }
+    d.saving = true; d.err = null; renderDeskRows();
+    try {
+      var r;
+      if (d.on) r = await sb.from('availability').upsert({barber_id:deskBarber, day:k, start_min:d.start, end_min:d.end}, {onConflict:'barber_id,day'}).select();
+      else r = await sb.from('availability').delete().eq('barber_id', deskBarber).eq('day', k).select();
+      if (r.error) throw r.error;
+      d.dirty = false;
+    } catch(e){ d.err = 'Could not save. Sign in again and retry.'; }
+    d.saving = false;
+    await refresh(true);
+    renderDeskRows();
+  }
+  function renderDeskRows(){
+    var box = $('deskrows'); box.textContent = '';
+    if (!deskBarber){ box.append(h('p',{class:'empty'},'Add a barber to start setting availability.')); return; }
+    days().forEach(function(k){
+      var sw = shopWindow(k);
+      if (!sw){
+        box.append(h('div',{class:'deskrow'}, h('div',{class:'d'}, fmtDay(k)), h('div',{class:'closedtxt'},'Shop closed')));
+        return;
+      }
+      var d = getDraft(k), saved = !!avail[deskBarber+'_'+k] && !d.dirty;
+      var row = h('div',{class:'deskrow'},
+        h('div',{class:'d'}, fmtDay(k), h('small',{}, 'Shop '+fmtMin(sw[0])+' – '+fmtMin(sw[1]))),
+        h('label',{class:'chk'}, h('input',{type:'checkbox', checked:d.on, disabled:!canEdit, onchange:function(e){ d.on = e.target.checked; d.dirty = true; renderDeskRows(); }}), 'Available'));
+      if (d.on){
+        row.append(
+          timeSelect(d.start, sw[0], sw[1]-SLOT, function(e){ d.start = +e.target.value; d.dirty = true; renderDeskRows(); }, 'Start time, '+fmtDay(k)),
+          timeSelect(d.end, sw[0]+SLOT, sw[1], function(e){ d.end = +e.target.value; d.dirty = true; renderDeskRows(); }, 'End time, '+fmtDay(k)));
+        Array.prototype.forEach.call(row.querySelectorAll('select'), function(s){ s.disabled = !canEdit; });
+      } else row.append(h('span',{class:'hint'},'Not working'), h('span'));
+      var act = h('div',{style:'grid-column:1/-1;display:flex;gap:10px;align-items:center'},
+        h('button',{class:'btn small', type:'button', disabled: !canEdit || !d.dirty || d.saving, onclick:function(){ saveDay(k); }}, d.saving ? 'Saving…' : 'Save day'),
+        saved ? h('span',{class:'saved'},'Saved') : null);
+      row.append(act);
+      if (d.err) row.append(h('p',{class:'rowmsg'}, d.err));
+      box.append(row);
+    });
+  }
+  function renderDeskBookings(){
+    var ul = $('bk'); ul.textContent = '';
+    if (!deskBarber){ return; }
+    var today = keyOf(new Date());
+    var list = staffBookings.filter(function(b){ return b.barber_id===deskBarber && b.day>=today; })
+      .sort(function(a,b){ return a.day===b.day ? a.start_min-b.start_min : (a.day<b.day?-1:1); });
+    if (!list.length){ ul.append(h('li',{class:'empty'},'No upcoming appointments for this barber.')); return; }
+    list.forEach(function(b){
+      var id = 'b'+b.id, isArmed = !!armed[id];
+      ul.append(h('li',{},
+        h('div',{}, h('div',{class:'who'}, b.customer_name), h('div',{class:'w'}, fmtDay(b.day)+' · '+fmtMin(b.start_min)),
+          b.customer_phone ? h('div',{class:'w'}, h('a',{href:'tel:'+b.customer_phone.replace(/[^\d+]/g,'')}, b.customer_phone)) : null,
+          b.note ? h('div',{class:'note'}, 'Note: '+b.note) : null),
+        h('button',{class:'btn ghost small', type:'button', onclick:async function(){
+          if (!isArmed){ armed[id] = true; renderDeskBookings(); return; }
+          try { await sb.from('bookings').delete().eq('id', b.id); } catch(e){}
+          delete armed[id];
+          await refresh(true);
+        }}, isArmed ? 'Confirm cancel' : 'Cancel')));
+    });
+  }
+  function deskChoices(){
+    if (!staff) return [];
+    if (staff.isAdmin) return barbers;
+    return barbers.filter(function(b){ return b.id === staff.barberId; });
+  }
+  function renderAuth(){
+    var signedIn = !!session;
+    $('desk-login').hidden = signedIn;
+    $('login-form').hidden = signedIn || !sb;
+    $('side-note').hidden = signedIn;
+    $('desk-who').hidden = !signedIn;
+    $('side-open').classList.toggle('on', signedIn);
+    $('side-open-text').textContent = signedIn ? 'Barber account' : 'Barber login';
+    if (signedIn) $('who-email').textContent = session.user.email || 'your account';
+    $('desk-gate').hidden = !signedIn || !!staff;
+    ['desk-top','desk-activity','desk-profile','desk-notes','desk-days','desk-bookings'].forEach(function(id){ $(id).hidden = !staff; });
+    $('desk-add').hidden = !isAdmin;
+  }
+  function renderDeskTop(){
+    var sel = $('desk-barber'); sel.textContent = '';
+    deskChoices().forEach(function(b){ sel.append(h('option',{value:b.id, selected:b.id===deskBarber}, b.name)); });
+    sel.disabled = deskChoices().length < 2;
+  }
+  function renderDeskNotes(){
+    var ul = $('dn-list'); ul.textContent = '';
+    if (!deskBarber) return;
+    var list = activeNotes(deskBarber);
+    if (!list.length){ ul.append(h('li',{class:'empty'},'No notes posted.')); return; }
+    list.forEach(function(n){
+      var id = 'n'+n.id, isArmed = !!armed[id];
+      ul.append(h('li',{},
+        h('div',{}, h('div',{class:'who'}, n.text), h('div',{class:'w'}, n.from ? noteWhen(n) : 'No date')),
+        h('button',{class:'btn ghost small', type:'button', onclick:async function(){
+          if (!isArmed){ armed[id] = true; renderDeskNotes(); return; }
+          try { await sb.from('notes').delete().eq('id', n.id); } catch(e){}
+          delete armed[id];
+          await refresh(true);
+        }}, isArmed ? 'Confirm remove' : 'Remove')));
+    });
+  }
+  async function addNote(){
+    var t = $('note-text').value.trim(), f = $('note-from').value, to = $('note-to').value, msg = $('note-msg');
+    msg.textContent = '';
+    if (!sb || !deskBarber) return;
+    if (!t){ msg.textContent = 'Write a short note first.'; return; }
+    if (to && !f){ msg.textContent = 'Add a start date, or clear the end date.'; return; }
+    if (to && f && to < f){ msg.textContent = 'The end date must be on or after the start date.'; return; }
+    try {
+      var r = await sb.from('notes').insert({barber_id:deskBarber, body:t, from_day:f || null, to_day:to || null});
+      if (r.error) throw r.error;
+      $('note-text').value = ''; $('note-from').value = ''; $('note-to').value = '';
+      await refresh(true);
+    } catch(e){ msg.textContent = 'Could not post the note. Sign in again and retry.'; }
+  }
+  async function addBarber(){
+    var nm = $('new-barber').value.trim(), msg = $('add-msg');
+    msg.textContent = '';
+    if (!nm || !sb || !isAdmin) return;
+    try {
+      var r = await sb.from('barbers').insert({name:nm}).select('id').single();
+      if (r.error) throw r.error;
+      $('new-barber').value = ''; deskBarber = r.data.id;
+      await refresh(true);
+    } catch(e){ msg.textContent = 'Could not add the barber. Only the shop owner can add barbers.'; }
+  }
+  function renderDesk(){ renderAuth(); renderDeskTop(); fillProfileFields(); renderActFilter(); renderActivity(); renderDeskNotes(); renderDeskRows(); renderDeskBookings(); }
+
+  /* ---------- tabs and events ---------- */
+  function applyTab(){
+    var hash = (location.hash||'').replace('#','');
+    tab = hash === 'barber' ? 'barber' : 'book';
+    profileId = /^profile-./.test(hash) ? hash.slice(8) : null;
+    syncProfileSelection();
+    $('view-book').hidden = tab !== 'book';
+    $('view-barber').hidden = tab !== 'barber';
+    $('tab-book').setAttribute('aria-selected', String(tab==='book'));
+    $('tab-barber').setAttribute('aria-selected', String(tab==='barber'));
+    if (tab === 'barber'){ seenAtOpen = lastSeen; renderDesk(); } else renderBook();
+    updateBadge();
+  }
+  $('tab-book').addEventListener('click', function(){ location.hash = 'book'; });
+  $('tab-barber').addEventListener('click', function(){ location.hash = 'barber'; });
+  window.addEventListener('hashchange', function(){ applyTab(); window.scrollTo(0, 0); });
+  $('cust-name').addEventListener('input', updateForm);
+  $('book-btn').addEventListener('click', confirmBooking);
+  $('add-barber').addEventListener('click', addBarber);
+  $('new-barber').addEventListener('keydown', function(e){ if (e.key==='Enter') addBarber(); });
+  $('add-note').addEventListener('click', addNote);
+  $('save-prof').addEventListener('click', saveProfile);
+  $('shop-edit').addEventListener('submit', saveShop);
+  $('se-cancel').addEventListener('click', function(){ $('shop-edit').hidden = true; });
+  $('prof-spec').addEventListener('input', function(){ profDirty = true; });
+  $('prof-bio').addEventListener('input', function(){ profDirty = true; });
+  $('find-btn').addEventListener('click', findBooking);
+  $('cancel-name').addEventListener('keydown', function(e){ if (e.key === 'Enter') findBooking(); });
+  $('act-filter').addEventListener('change', function(e){ watchBarber = e.target.value; lsSet('bs_filter', watchBarber); renderActivity(); });
+  $('desk-barber').addEventListener('change', function(e){ deskBarber = e.target.value; profDirty = false; fillProfileFields(); renderDeskNotes(); renderDeskRows(); renderDeskBookings(); });
+  $('login-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    if (!sb) return;
+    var msg = $('login-msg'); msg.textContent = '';
+    $('login-btn').disabled = true;
+    try {
+      var r = await sb.auth.signInWithPassword({email:$('login-email').value.trim(), password:$('login-pass').value});
+      if (r.error) msg.textContent = 'Email or password is incorrect.';
+      else { $('login-pass').value = ''; setSide(false); location.hash = 'barber'; }
+    } catch(err){ msg.textContent = 'Could not sign in. Check your connection and try again.'; }
+    $('login-btn').disabled = false;
+  });
+  $('logout-btn').addEventListener('click', function(){ if (sb) sb.auth.signOut(); setSide(false); });
+
+  /* ---------- sidebar ---------- */
+  var sideReturn = null;
+  function setSide(open){
+    var el = $('side');
+    if (open){
+      sideReturn = document.activeElement;
+      $('scrim').hidden = false;
+      el.classList.add('open');
+      $('side-open').setAttribute('aria-expanded', 'true');
+      setTimeout(function(){
+        var f = !$('login-form').hidden ? $('login-email') : (!$('desk-who').hidden ? $('go-desk') : $('side-close'));
+        if (f) f.focus();
+      }, 60);
+    } else {
+      $('scrim').hidden = true;
+      el.classList.remove('open');
+      $('side-open').setAttribute('aria-expanded', 'false');
+      if (sideReturn && sideReturn.focus) sideReturn.focus();
+    }
+  }
+  $('side-open').addEventListener('click', function(){ setSide(!$('side').classList.contains('open')); });
+  $('desk-open-side').addEventListener('click', function(){ setSide(true); });
+  $('side-close').addEventListener('click', function(){ setSide(false); });
+  $('scrim').addEventListener('click', function(){ setSide(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && $('side').classList.contains('open')) setSide(false); });
+  $('go-desk').addEventListener('click', function(){ setSide(false); location.hash = 'barber'; });
+
+  /* ---------- data ---------- */
+  function afterData(quiet){
+    barbers.sort(function(a,b){ return a.name.localeCompare(b.name); });
+    syncProfileSelection();
+    if (selBarber && !barbers.some(function(b){ return b.id===selBarber; })) selBarber = null;
+    if (!selBarber && barbers.length) selBarber = barbers[0].id;
+    if (selBarber && (!selDate || freeCount(selBarber, selDate) === 0)){ selDate = firstOpenDay(selBarber); selTime = null; }
+    if (selTime != null && selBarber && selDate && !confirmed){
+      var still = slotsFor(selBarber, selDate).some(function(s){ return s.m===selTime && !s.booked; });
+      if (!still) selTime = null;
+    }
+    var choices = deskChoices();
+    if (!deskBarber || !choices.some(function(b){ return b.id===deskBarber; })){
+      var own = staff && staff.barberId && choices.some(function(b){ return b.id===staff.barberId; });
+      deskBarber = own ? staff.barberId : (choices.length ? choices[0].id : null);
+    }
+    renderContact(); renderHours(); renderStatus(); renderAuth();
+    renderBook();
+    if (tab === 'barber'){
+      var a = document.activeElement;
+      var typing = a && $('view-barber').contains(a) && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName);
+      if (!(quiet && typing)) renderDesk();
+    }
+  }
+
+  var chain = Promise.resolve();
+  function refresh(force, quiet){
+    chain = chain.then(function(){ return doRefresh(force, quiet); }).catch(function(){});
+    return chain;
+  }
+  async function doRefresh(force, quiet){
+    try {
+      var today = keyOf(new Date());
+      var q = [
+        sb.from('shop_settings').select('name,address,phone').eq('id', 1).maybeSingle(),
+        sb.from('shop_hours').select('day_of_week,open_min,close_min'),
+        sb.from('barbers').select('id,name,bio,specialties'),
+        sb.from('availability').select('barber_id,day,start_min,end_min').gte('day', today),
+        sb.from('notes').select('id,barber_id,body,from_day,to_day').limit(500),
+        sb.from('taken_slots').select('barber_id,day,start_min').gte('day', today)
+      ];
+      if (staff){
+        q.push(sb.from('bookings').select('id,barber_id,day,start_min,customer_name,customer_phone,note').gte('day', today));
+        q.push(sb.from('activity').select('id,kind,actor,barber_id,day,start_min,customer_name,customer_phone,note,created_at').order('created_at', {ascending:false}).limit(60));
+      }
+      var r = await Promise.all(q);
+      for (var i = 0; i < r.length; i++) if (r[i].error) throw r[i].error;
+      var sig = JSON.stringify(r.map(function(x){ return x.data; }));
+      if (!force && loaded && sig === lastSig) return;
+      lastSig = sig;
+      var set = r[0].data;
+      if (set){ SHOP.name = set.name || SHOP.name; SHOP.address = set.address || SHOP.address; SHOP.phone = set.phone || SHOP.phone; }
+      (r[1].data || []).forEach(function(x){ HOURS[x.day_of_week] = x.open_min == null ? null : [x.open_min, x.close_min]; });
+      barbers = (r[2].data || []).map(function(x){ return {id:x.id, name:x.name, bio:x.bio || '', specialties:x.specialties || ''}; });
+      avail = {};
+      (r[3].data || []).forEach(function(x){ avail[x.barber_id+'_'+x.day] = {start:x.start_min, end:x.end_min}; });
+      notes = (r[4].data || []).map(function(x){ return {id:x.id, barberId:x.barber_id, text:x.body, from:x.from_day || '', to:x.to_day || ''}; });
+      bookings = {};
+      (r[5].data || []).forEach(function(x){ bookings[x.barber_id+'_'+x.day+'_'+x.start_min] = true; });
+      staffBookings = staff ? (r[6].data || []) : [];
+      var acts = staff ? (r[7].data || []).map(function(x){
+        return {id:x.id, type:x.kind, by:x.actor, barberId:x.barber_id, date:x.day, start:x.start_min, name:x.customer_name, phone:x.customer_phone || '', note:x.note || '', at:Date.parse(x.created_at)};
+      }) : [];
+      var fresh = [];
+      if (staff){
+        if (knownAct) acts.forEach(function(e){ if (!knownAct[e.id]) fresh.push(e); });
+        knownAct = {}; acts.forEach(function(e){ knownAct[e.id] = 1; });
+      } else knownAct = null;
+      activity = acts;
+      loaded = true;
+      $('loadnote').textContent = '';
+      afterData(quiet);
+      fresh.forEach(maybeToast);
+    } catch(e){
+      $('loadnote').textContent = 'Could not reach the shop schedule. Check your connection. This page keeps trying.';
+    }
+  }
+
+  async function loadStaff(){
+    staff = null; canEdit = false; isAdmin = false; activity = []; knownAct = null;
+    if (session){
+      try {
+        var r = await sb.from('staff').select('barber_id,is_admin').eq('user_id', session.user.id).maybeSingle();
+        if (!r.error && r.data){ staff = {barberId:r.data.barber_id, isAdmin:!!r.data.is_admin}; canEdit = true; isAdmin = staff.isAdmin; }
+      } catch(e){}
+    }
+    deskBarber = null;
+    renderContact();
+  }
+
+  async function start(){
+    renderContact(); renderStatus(); renderHours(); applyTab(); renderBook();
+    setInterval(function(){ renderStatus(); if (tab === 'barber') renderActivity(); }, 60000);
+    var configured = CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY && !/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_ANON_KEY);
+    if (!configured || !window.supabase){
+      $('loadnote').textContent = 'This site is not connected to its database yet. Add your Supabase details to config.js (see README.md).';
+      loaded = true; renderBook(); applyTab(); renderAuth(); return;
+    }
+    sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+    try {
+      var s = await sb.auth.getSession();
+      session = s.data && s.data.session ? s.data.session : null;
+    } catch(e){ session = null; }
+    await loadStaff();
+    await refresh(true);
+    applyTab();
+    sb.auth.onAuthStateChange(function(ev, s2){
+      setTimeout(async function(){
+        var before = session && session.user ? session.user.id : null;
+        session = s2 || null;
+        var after = session && session.user ? session.user.id : null;
+        if (before !== after){ await loadStaff(); await refresh(true); renderAuth(); if (tab === 'barber') renderDesk(); }
+      }, 0);
+    });
+    var tick = 0;
+    setInterval(function(){
+      tick++;
+      if (document.hidden) return;
+      if (staff || tick % 2 === 0) refresh(false, true);
+    }, 15000);
+  }
+  start();
+})();
+</script>
 </body>
 </html>
