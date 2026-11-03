@@ -1,6 +1,4 @@
 window.BARBERSHOP_CONFIG = {
-  SUPABASE_URL: 'https://abcdxyz.supabase.co',
-  SUPABASE_ANON_KEY: 'eyJhbGciOi...long...'
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFieXFrbmd3aHBlbXJnenZ5a2RkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0ODc2NTgsImV4cCI6MjEwOTA2MzY1OH0.sZit67pQz8C20DOQOr0-wXDBli-iY3TxkMFifNXt7Ho
+  SUPABASE_URL: '',
+  SUPABASE_ANON_KEY: ''
 };
-
