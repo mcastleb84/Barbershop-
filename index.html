@@ -1118,7 +1118,8 @@ textarea.input{resize:vertical;font:inherit}
       afterData(quiet);
       fresh.forEach(maybeToast);
     } catch(e){
-      $('loadnote').textContent = 'Could not reach the shop schedule. Check your connection. This page keeps trying.';
+      var why = e && (e.message || e.code || e.details) ? ' (Details: ' + [e.code, e.message].filter(Boolean).join(' - ').slice(0, 160) + ')' : '';
+      $('loadnote').textContent = 'Could not reach the shop schedule. Check your connection. This page keeps trying.' + why;
     }
   }
 
