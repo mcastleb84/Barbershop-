@@ -27,50 +27,67 @@
     <button type="submit" id="submit-btn">Sign up</button>
   </form>
 
-  <p id="message"></p>
+  <p id="message">Page ready (v2)</p>
   <p style="text-align:center">Already have an account? <a href="login.html">Log in</a></p>
 
   <script>
-    const config = window.BARBERSHOP_CONFIG;
-    const supabase = window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+    const message = document.getElementById('message');
+
+    function showError(text) {
+      message.textContent = 'Error: ' + text;
+      message.className = 'error';
+    }
+
+    window.addEventListener('error', (e) => showError(e.message));
+
+    let sb;
+    try {
+      const config = window.BARBERSHOP_CONFIG;
+      if (!config) throw new Error('config.js did not load');
+      if (!window.supabase) throw new Error('Supabase library did not load');
+      sb = window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+    } catch (err) {
+      showError(err.message);
+    }
 
     const form = document.getElementById('signup-form');
-    const message = document.getElementById('message');
     const button = document.getElementById('submit-btn');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!sb) { showError('Not connected to Supabase'); return; }
+
       button.disabled = true;
       message.textContent = 'Creating account...';
       message.className = '';
 
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+      try {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: 'https://mcastleb84.github.io/Barbershop-/login.html'
+        const { data, error } = await sb.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: 'https://mcastleb84.github.io/Barbershop-/login.html'
+          }
+        });
+
+        if (error) { showError(error.message); return; }
+
+        if (data.session) {
+          message.textContent = 'Account created! Redirecting...';
+          message.className = 'success';
+          setTimeout(() => { window.location.href = 'index.html'; }, 1000);
+        } else {
+          message.textContent = 'Check your email to confirm your account.';
+          message.className = 'success';
+          form.reset();
         }
-      });
-
-      button.disabled = false;
-
-      if (error) {
-        message.textContent = error.message;
-        message.className = 'error';
-        return;
-      }
-
-      if (data.session) {
-        message.textContent = 'Account created! Redirecting...';
-        message.className = 'success';
-        setTimeout(() => { window.location.href = 'index.html'; }, 1000);
-      } else {
-        message.textContent = 'Check your email to confirm your account.';
-        message.className = 'success';
-        form.reset();
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        button.disabled = false;
       }
     });
   </script>
