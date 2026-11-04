@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: -apple-system, sans-serif; max-width: 360px; margin: 40px auto; padding: 0 16px; }
+    h1 { text-align: center; }
+    input, button { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; box-sizing: border-box; border-radius: 8px; }
+    input { border: 1px solid #ccc; }
+    button { background: #111; color: #fff; border: none; cursor: pointer; }
+    button:disabled { opacity: 0.5; }
+    #message { text-align: center; margin-top: 12px; }
+    .error { color: #c00; }
+    .success { color: #080; }
+  </style>
+</head>
+<body>
+  <h1>Create an account</h1>
+
+  <form id="signup-form">
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="password" placeholder="Password (6+ characters)" minlength="6" required>
+    <button type="submit" id="submit-btn">Sign up</button>
+  </form>
+
+  <p id="message"></p>
+  <p style="text-align:center">Already have an account? <a href="login.html">Log in</a></p>
+
+  <script>
+    // Replace these two values with yours from Supabase:
+    // Project Settings → API → Project URL and "anon public" key
+    const SUPABASE_URL = 'https://YOUR-PROJECT-ID.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const form = document.getElementById('signup-form');
+    const message = document.getElementById('message');
+    const button = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      button.disab
