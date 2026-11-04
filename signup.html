@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Up</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
   <style>
     body { font-family: -apple-system, sans-serif; max-width: 360px; margin: 40px auto; padding: 0 16px; }
     h1 { text-align: center; }
@@ -30,12 +31,8 @@
   <p style="text-align:center">Already have an account? <a href="login.html">Log in</a></p>
 
   <script>
-    // Replace these two values with yours from Supabase:
-    // Project Settings → API → Project URL and "anon public" key
-    const SUPABASE_URL = 'https://YOUR-PROJECT-ID.supabase.co';
-    const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
-
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const config = window.BARBERSHOP_CONFIG;
+    const supabase = window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
 
     const form = document.getElementById('signup-form');
     const message = document.getElementById('message');
@@ -43,4 +40,39 @@
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      button.disab
+      button.disabled = true;
+      message.textContent = 'Creating account...';
+      message.className = '';
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: 'https://mcastleb84.github.io/Barbershop-/login.html'
+        }
+      });
+
+      button.disabled = false;
+
+      if (error) {
+        message.textContent = error.message;
+        message.className = 'error';
+        return;
+      }
+
+      if (data.session) {
+        message.textContent = 'Account created! Redirecting...';
+        message.className = 'success';
+        setTimeout(() => { window.location.href = 'index.html'; }, 1000);
+      } else {
+        message.textContent = 'Check your email to confirm your account.';
+        message.className = 'success';
+        form.reset();
+      }
+    });
+  </script>
+</body>
+</html>
