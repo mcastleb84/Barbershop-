@@ -187,6 +187,15 @@ textarea.input{resize:vertical;font:inherit}
 .apday{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 4px;display:flex;justify-content:space-between;gap:8px}
 .apday:first-child{margin-top:4px}
 .apbarber{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid var(--line);margin-left:6px}
+.payrow{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;flex-basis:100%;margin-top:8px}
+.contact .paypill,.paypill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:#fff;color:#111;text-decoration:none;font-weight:700;font-size:14px;border:0}
+.paydot{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;color:#fff;font-size:11px;font-weight:800;line-height:1;flex:none}
+.payblock{margin-top:12px;padding:12px;border:1.5px solid var(--line);border-radius:10px}
+.paybtn{display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+.paybtn .paydot{width:22px;height:22px;font-size:13px}
+.daytabs{display:flex;gap:4px;padding:4px;border:1.5px solid var(--line);border-radius:10px;margin:4px 0 8px;max-width:420px}
+.daytab{flex:1;border:0;background:transparent;padding:8px 6px;border-radius:7px;font:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+.daytab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
 .notice{background:var(--wash);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:14px;margin:0}
 .whorow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .whorow p{margin:0;overflow-wrap:anywhere}
@@ -234,6 +243,8 @@ textarea.input{resize:vertical;font:inherit}
       <div class="field"><label for="se-name">Business name</label><input class="input" id="se-name" maxlength="40" required></div>
       <div class="field"><label for="se-address">Address</label><input class="input" id="se-address" maxlength="120" required></div>
       <div class="field"><label for="se-phone">Phone number</label><input class="input" id="se-phone" maxlength="30" inputmode="tel" required></div>
+      <div class="field"><label for="se-cashapp">Cash App $Cashtag (optional)</label><input class="input" id="se-cashapp" maxlength="21" placeholder="$FreshCuts" autocomplete="off" autocapitalize="off"></div>
+      <div class="field"><label for="se-venmo">Venmo username (optional)</label><input class="input" id="se-venmo" maxlength="31" placeholder="@FreshCuts" autocomplete="off" autocapitalize="off"></div>
       <p class="msg" id="se-msg" role="status"></p>
       <div class="row"><button class="btn small" type="submit" id="se-save">Save</button><button class="btn ghost small" type="button" id="se-cancel">Cancel</button></div>
     </form>
@@ -379,6 +390,15 @@ textarea.input{resize:vertical;font:inherit}
             <label for="prof-bio">About</label>
             <textarea class="input" id="prof-bio" rows="4" maxlength="300" placeholder="A few sentences about your style and experience"></textarea>
           </div>
+          <div class="field" style="max-width:480px">
+            <label for="prof-cashapp">Your Cash App $Cashtag (optional)</label>
+            <input class="input" id="prof-cashapp" type="text" maxlength="21" placeholder="$MarcusCuts" autocomplete="off" autocapitalize="off">
+          </div>
+          <div class="field" style="max-width:480px">
+            <label for="prof-venmo">Your Venmo username (optional)</label>
+            <input class="input" id="prof-venmo" type="text" maxlength="31" placeholder="@MarcusCuts" autocomplete="off" autocapitalize="off">
+          </div>
+          <p class="hint" style="margin:0">Customers see these on your profile and after they book with you. Leave them blank to use the shop's Cash App and Venmo.</p>
           <button class="btn small" id="save-prof" type="button">Save profile</button>
           <p class="msg" id="prof-msg" role="status"></p>
           <p class="okmsg" id="prof-ok" role="status"></p>
@@ -411,6 +431,11 @@ textarea.input{resize:vertical;font:inherit}
       <div class="panel" id="desk-days" hidden>
         <h2 class="step-h">Days available for clients</h2>
         <p class="hint" style="margin-bottom:6px">Pick a window inside shop hours for each day, then save that day.</p>
+        <div class="daytabs" role="tablist" aria-label="Which days to show">
+          <button type="button" role="tab" class="daytab" data-dayview="today" aria-selected="true">Today</button>
+          <button type="button" role="tab" class="daytab" data-dayview="tomorrow" aria-selected="false">Tomorrow</button>
+          <button type="button" role="tab" class="daytab" data-dayview="later" aria-selected="false">Next 2 weeks</button>
+        </div>
         <div id="deskrows"></div>
       </div>
     </section>
@@ -473,8 +498,26 @@ textarea.input{resize:vertical;font:inherit}
   var selBarber = null, selDate = null, selTime = null, confirmed = null, busy = false;
   var tab = 'book', deskBarber = null, drafts = {}, armed = {};
 
+  var PAY = {cashapp:'', venmo:''};
+  function cleanTag(v, sym){ return String(v || '').trim().replace(/^https?:\/\/[^/]+\/(u\/)?/i, '').replace(sym === '$' ? /^\$+/ : /^@+/, '').replace(/\s+/g, ''); }
+  var BPAY = {};
+  function hasPay(p){ return !!(p && (p.cashapp || p.venmo)); }
+  function payFor(barberId){ return hasPay(BPAY[barberId]) ? BPAY[barberId] : PAY; }
+  function payButtons(cls, p){
+    p = p || PAY; var out = [];
+    if (p.cashapp) out.push(h('a',{class:cls, href:'https://cash.app/$' + encodeURIComponent(p.cashapp), target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#00D64F', 'aria-hidden':'true'}, '$'), 'Pay with Cash App'));
+    if (p.venmo) out.push(h('a',{class:cls, href:'https://venmo.com/u/' + encodeURIComponent(p.venmo), target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#008CFF', 'aria-hidden':'true'}, 'V'), 'Pay with Venmo'));
+    return out;
+  }
+  async function loadPay(){
+    if (!sb) return;
+    try { var r = await sb.from('shop_settings').select('cashapp,venmo').eq('id', 1).maybeSingle(); if (!r.error && r.data) PAY = {cashapp: r.data.cashapp || '', venmo: r.data.venmo || ''}; } catch(e){}
+    try { var r2 = await sb.from('barbers').select('id,cashapp,venmo'); if (!r2.error){ BPAY = {}; (r2.data || []).forEach(function(x){ BPAY[x.id] = {cashapp: x.cashapp || '', venmo: x.venmo || ''}; }); } } catch(e){}
+    renderContact(); if (confirmed) updateForm(); renderProfile(); if (!profDirty) fillProfileFields();
+  }
   function openShopEdit(focusId){
     $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone;
+    $('se-cashapp').value = PAY.cashapp ? '$' + PAY.cashapp : ''; $('se-venmo').value = PAY.venmo ? '@' + PAY.venmo : '';
     $('se-msg').textContent = '';
     $('shop-edit').hidden = false;
     $('shop-name').scrollIntoView({block:'nearest'});
@@ -490,13 +533,14 @@ textarea.input{resize:vertical;font:inherit}
         h('button',{class:'editable',type:'button','aria-label':'Edit address',onclick:function(){ openShopEdit('se-address'); }}, SHOP.address),
         h('span',{'aria-hidden':'true'}, '·'),
         h('button',{class:'editable',type:'button','aria-label':'Edit phone number',onclick:function(){ openShopEdit('se-phone'); }}, SHOP.phone));
-      $('edit-hint').textContent = 'Owner: tap the name, address or phone number to change it.';
+      $('edit-hint').textContent = 'Owner: tap the name, address or phone number to change them, and to add your Cash App and Venmo.';
     } else {
       nm.textContent = SHOP.name;
       c.append(
         h('a',{href:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(SHOP.address), target:'_blank', rel:'noopener'}, SHOP.address),
         h('span',{'aria-hidden':'true'}, '·'),
         h('a',{href:'tel:'+SHOP.phone.replace(/[^\d+]/g,'')}, SHOP.phone));
+      if (PAY.cashapp || PAY.venmo){ var pr = h('span',{class:'payrow'}); payButtons('paypill').forEach(function(a){ pr.append(a); }); c.append(pr); }
       $('edit-hint').textContent = '';
       $('shop-edit').hidden = true;
     }
@@ -512,6 +556,14 @@ textarea.input{resize:vertical;font:inherit}
       var r = await sb.from('shop_settings').update(v).eq('id', 1).select('id');
       if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
       SHOP.name = v.name; SHOP.address = v.address; SHOP.phone = v.phone;
+      var pay = {cashapp: cleanTag($('se-cashapp').value, '$'), venmo: cleanTag($('se-venmo').value, '@')};
+      if (pay.cashapp && !/^[A-Za-z][A-Za-z0-9_-]{0,19}$/.test(pay.cashapp)){ msg.textContent = 'That $Cashtag does not look right. It starts with a letter, like $FreshCuts.'; $('se-save').disabled = false; return; }
+      if (pay.venmo && !/^[A-Za-z0-9_-]{2,30}$/.test(pay.venmo)){ msg.textContent = 'That Venmo username does not look right, like @FreshCuts.'; $('se-save').disabled = false; return; }
+      if (pay.cashapp !== PAY.cashapp || pay.venmo !== PAY.venmo){
+        var r2 = await sb.from('shop_settings').update(pay).eq('id', 1).select('id');
+        if (r2.error){ msg.textContent = /column/i.test(r2.error.message || '') ? 'Shop info saved. To save Cash App and Venmo, run payment-setup.sql in Supabase first.' : 'Shop info saved, but Cash App and Venmo did not. Try again.'; renderContact(); $('se-save').disabled = false; return; }
+        PAY = pay;
+      }
       $('shop-edit').hidden = true; renderContact();
     } catch(err){ msg.textContent = 'Could not save. Sign in again and retry.'; }
     $('se-save').disabled = false;
@@ -611,6 +663,9 @@ textarea.input{resize:vertical;font:inherit}
         h('span',{class:'pav','aria-hidden':'true'}, initial(b.name)),
         h('div',{}, h('h2',{class:'pname'}, b.name), b.specialties ? h('p',{class:'pspec'}, b.specialties) : null)),
       h('p',{class:'pbio'}, b.bio || 'This barber has not added a bio yet.'),
+      hasPay(BPAY[b.id]) ? h('div',{class:'payblock'},
+        h('p',{style:'margin:0 0 8px;font-weight:700'}, 'Pay ' + b.name.split(' ')[0]),
+        h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'}, payButtons('btn small paybtn', BPAY[b.id]))) : null,
       h('div',{id:'pnotes'}));
   }
   function applyProfileMode(){
@@ -628,6 +683,9 @@ textarea.input{resize:vertical;font:inherit}
     if (!b || profDirty) return;
     $('prof-spec').value = b.specialties || '';
     $('prof-bio').value = b.bio || '';
+    var bp = BPAY[b.id] || {};
+    $('prof-cashapp').value = bp.cashapp ? '$' + bp.cashapp : '';
+    $('prof-venmo').value = bp.venmo ? '@' + bp.venmo : '';
   }
   async function saveProfile(){
     var msg = $('prof-msg'); msg.textContent = ''; $('prof-ok').textContent = '';
@@ -635,6 +693,15 @@ textarea.input{resize:vertical;font:inherit}
     try {
       var r = await sb.from('barbers').update({specialties:$('prof-spec').value.trim(), bio:$('prof-bio').value.trim()}).eq('id', deskBarber).select('id');
       if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
+      var pay = {cashapp: cleanTag($('prof-cashapp').value, '$'), venmo: cleanTag($('prof-venmo').value, '@')};
+      if (pay.cashapp && !/^[A-Za-z][A-Za-z0-9_-]{0,19}$/.test(pay.cashapp)){ msg.textContent = 'Bio saved. That $Cashtag does not look right. It starts with a letter, like $MarcusCuts.'; return; }
+      if (pay.venmo && !/^[A-Za-z0-9_-]{2,30}$/.test(pay.venmo)){ msg.textContent = 'Bio saved. That Venmo username does not look right, like @MarcusCuts.'; return; }
+      var old = BPAY[deskBarber] || {cashapp:'', venmo:''};
+      if (pay.cashapp !== (old.cashapp || '') || pay.venmo !== (old.venmo || '')){
+        var r2 = await sb.from('barbers').update(pay).eq('id', deskBarber).select('id');
+        if (r2.error){ msg.textContent = /column/i.test(r2.error.message || '') ? 'Bio saved. To save Cash App and Venmo, run payment-setup.sql in Supabase first.' : 'Bio saved, but Cash App and Venmo did not. Try again.'; return; }
+        BPAY[deskBarber] = pay;
+      }
       profDirty = false; $('prof-ok').textContent = 'Profile saved.';
       await refresh(true);
     } catch(e){ msg.textContent = 'Could not save. Sign in again and retry.'; }
@@ -808,6 +875,10 @@ textarea.input{resize:vertical;font:inherit}
         h('h3',{},'You are booked'),
         h('p',{}, confirmed.name+', see you '+fmtDay(confirmed.date)+' at '+fmtMin(confirmed.start)+'.'),
         h('p',{class:'hint'}, 'Barber: '+barberName(confirmed.barberId)),
+        hasPay(payFor(confirmed.barberId)) ? h('div',{class:'payblock'},
+          h('p',{style:'margin:0 0 8px;font-weight:700'}, 'Pay now (optional)'),
+          h('div',{style:'display:flex;gap:8px;flex-wrap:wrap'}, payButtons('btn small paybtn', payFor(confirmed.barberId))),
+          h('p',{class:'hint', style:'margin:8px 0 0'}, 'Opens the payment page so you can enter the amount. You can also pay at the shop.')) : null,
         cancelArmed && hoursUntil(confirmed.date, confirmed.start) < 24
           ? h('p',{class:'hint'}, 'This is less than 24 hours before your appointment, which is later than our cancellation policy asks. Please also call the shop.') : null,
         cancelErr ? h('p',{class:'msg'}, 'Could not cancel. Please call the shop.') : null,
@@ -885,10 +956,13 @@ textarea.input{resize:vertical;font:inherit}
     await refresh(true);
     renderDeskRows();
   }
+  var dayView = 'today';
   function renderDeskRows(){
     var box = $('deskrows'); box.textContent = '';
     if (!deskBarber){ box.append(h('p',{class:'empty'},'Add a barber to start setting availability.')); return; }
-    days().forEach(function(k){
+    var all = days(), list = dayView === 'today' ? all.slice(0, 1) : dayView === 'tomorrow' ? all.slice(1, 2) : all.slice(1);
+    document.querySelectorAll('[data-dayview]').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.dayview === dayView)); });
+    list.forEach(function(k){
       var sw = shopWindow(k);
       if (!sw){
         box.append(h('div',{class:'deskrow'}, h('div',{class:'d'}, fmtDay(k)), h('div',{class:'closedtxt'},'Shop closed')));
@@ -1117,6 +1191,8 @@ textarea.input{resize:vertical;font:inherit}
   $('se-cancel').addEventListener('click', function(){ $('shop-edit').hidden = true; });
   $('prof-spec').addEventListener('input', function(){ profDirty = true; });
   $('prof-bio').addEventListener('input', function(){ profDirty = true; });
+  $('prof-cashapp').addEventListener('input', function(){ profDirty = true; });
+  $('prof-venmo').addEventListener('input', function(){ profDirty = true; });
   $('find-btn').addEventListener('click', findBooking);
   $('appt-filter').addEventListener('change', function(e){ apptFilter = e.target.value; renderDeskBookings(); });
   $('appt-new').addEventListener('click', function(){ $('ap-ok').textContent = ''; $('ap-msg').textContent = ''; $('appt-form').hidden = false; fillApptForm(false); $('ap-name').focus(); });
@@ -1124,6 +1200,7 @@ textarea.input{resize:vertical;font:inherit}
   $('ap-barber').addEventListener('change', function(){ fillApptForm(true); });
   $('ap-day').addEventListener('change', function(){ fillApptTimes(false); });
   $('ap-save').addEventListener('click', saveAppt);
+  document.querySelectorAll('[data-dayview]').forEach(function(b){ b.addEventListener('click', function(){ dayView = b.dataset.dayview; renderDeskRows(); }); });
   $('cancel-name').addEventListener('keydown', function(e){ if (e.key === 'Enter') findBooking(); });
   $('act-filter').addEventListener('change', function(e){ watchBarber = e.target.value; lsSet('bs_filter', watchBarber); renderActivity(); });
   $('desk-barber').addEventListener('change', function(e){ deskBarber = e.target.value; profDirty = false; fillProfileFields(); renderDeskNotes(); renderDeskRows(); renderDeskBookings(); });
@@ -1275,6 +1352,7 @@ textarea.input{resize:vertical;font:inherit}
     } catch(e){ session = null; }
     await loadStaff();
     await refresh(true);
+    loadPay();
     applyTab();
     if (!TEST_MODE) sb.auth.onAuthStateChange(function(ev, s2){
       setTimeout(async function(){
