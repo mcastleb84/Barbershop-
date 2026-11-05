@@ -184,6 +184,9 @@ textarea.input{resize:vertical;font:inherit}
 .bk li:first-child{border-top:0}
 .bk .w{font-family:var(--font-mono);font-size:13px}
 .bk .who{font-weight:600;overflow-wrap:anywhere}
+.apday{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 4px;display:flex;justify-content:space-between;gap:8px}
+.apday:first-child{margin-top:4px}
+.apbarber{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid var(--line);margin-left:6px}
 .notice{background:var(--wash);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:14px;margin:0}
 .whorow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .whorow p{margin:0;overflow-wrap:anywhere}
@@ -312,6 +315,32 @@ textarea.input{resize:vertical;font:inherit}
       <div class="panel" id="desk-gate" hidden>
         <p class="notice">This account is not linked to a barber yet. Ask the shop owner to link it, then sign in again.</p>
       </div>
+      <div class="panel" id="desk-bookings" hidden>
+        <h2 class="step-h">Appointments</h2>
+        <p class="hint" id="appt-sum" style="margin-bottom:10px"></p>
+        <div class="addrow" style="align-items:flex-end;margin-bottom:6px">
+          <div class="field" id="appt-filter-wrap" style="max-width:240px" hidden>
+            <label for="appt-filter">Show</label>
+            <select class="sel" id="appt-filter"></select>
+          </div>
+          <button class="btn small" id="appt-new" type="button">+ Add appointment</button>
+        </div>
+        <div class="form" id="appt-form" hidden style="margin:10px 0 14px;padding:14px;border:1.5px solid var(--line);border-radius:10px">
+          <p class="hint" style="margin:0">Book a walk-in or a phone call. It takes the slot so nobody else can book it.</p>
+          <div class="addrow">
+            <div class="field" style="max-width:220px" id="ap-barber-wrap"><label for="ap-barber">Barber</label><select class="sel" id="ap-barber"></select></div>
+            <div class="field" style="max-width:220px"><label for="ap-day">Day</label><select class="sel" id="ap-day"></select></div>
+            <div class="field" style="max-width:160px"><label for="ap-time">Time</label><select class="sel" id="ap-time"></select></div>
+          </div>
+          <div class="field" style="max-width:420px"><label for="ap-name">Customer name</label><input class="input" id="ap-name" type="text" maxlength="60" placeholder="Andre Collins" autocomplete="off"></div>
+          <div class="field" style="max-width:420px"><label for="ap-phone">Phone (optional)</label><input class="input" id="ap-phone" type="tel" maxlength="20" placeholder="(555) 214-7788" autocomplete="off"></div>
+          <div class="field" style="max-width:420px"><label for="ap-note">Note (optional)</label><input class="input" id="ap-note" type="text" maxlength="200" placeholder="Low fade, beard trim" autocomplete="off"></div>
+          <div class="addrow"><button class="btn small" id="ap-save" type="button">Save appointment</button><button class="btn ghost small" id="ap-cancel" type="button">Cancel</button></div>
+          <p class="msg" id="ap-msg" role="status"></p>
+        </div>
+        <p class="okmsg" id="ap-ok" role="status"></p>
+        <div id="bk"></div>
+      </div>
       <div class="panel" id="desk-top" hidden>
         <h2 class="step-h">Your availability</h2>
         <div class="field" style="max-width:260px">
@@ -381,10 +410,6 @@ textarea.input{resize:vertical;font:inherit}
         <h2 class="step-h">Days available for clients</h2>
         <p class="hint" style="margin-bottom:6px">Pick a window inside shop hours for each day, then save that day.</p>
         <div id="deskrows"></div>
-      </div>
-      <div class="panel" id="desk-bookings" hidden>
-        <h2 class="step-h">Upcoming appointments</h2>
-        <ul class="bk" id="bk"></ul>
       </div>
     </section>
   </main>
@@ -884,17 +909,42 @@ textarea.input{resize:vertical;font:inherit}
       box.append(row);
     });
   }
+  var apptFilter = null;
+  function dayLabel(k){
+    var t = new Date(), today = keyOf(t), tm = keyOf(new Date(t.getFullYear(), t.getMonth(), t.getDate()+1));
+    return (k === today ? 'Today · ' : k === tm ? 'Tomorrow · ' : '') + fmtDay(k);
+  }
   function renderDeskBookings(){
-    var ul = $('bk'); ul.textContent = '';
-    if (!deskBarber){ return; }
-    var today = keyOf(new Date());
-    var list = staffBookings.filter(function(b){ return b.barber_id===deskBarber && b.day>=today; })
-      .sort(function(a,b){ return a.day===b.day ? a.start_min-b.start_min : (a.day<b.day?-1:1); });
-    if (!list.length){ ul.append(h('li',{class:'empty'},'No upcoming appointments for this barber.')); return; }
+    var box = $('bk'); box.textContent = '';
+    if (!staff) return;
+    var choices = deskChoices(), today = keyOf(new Date());
+    var sel = $('appt-filter'), want = (choices.length > 1 ? ['all'] : []).concat(choices.map(function(b){ return b.id; }));
+    if (apptFilter == null || want.indexOf(apptFilter) < 0) apptFilter = staff.isAdmin ? 'all' : (staff.barberId || (choices[0] && choices[0].id) || null);
+    sel.textContent = '';
+    if (choices.length > 1) sel.append(h('option',{value:'all'}, 'All barbers'));
+    choices.forEach(function(b){ sel.append(h('option',{value:b.id}, b.name)); });
+    sel.value = apptFilter;
+    $('appt-filter-wrap').hidden = choices.length < 2;
+    $('appt-new').hidden = !choices.length;
+    var list = staffBookings.filter(function(b){
+      return b.day >= today && (apptFilter === 'all' ? choices.some(function(c){ return c.id === b.barber_id; }) : b.barber_id === apptFilter);
+    }).sort(function(a,b){ return a.day===b.day ? a.start_min-b.start_min : (a.day<b.day?-1:1); });
+    var nToday = list.filter(function(b){ return b.day === today; }).length;
+    $('appt-sum').textContent = list.length
+      ? list.length + ' upcoming appointment' + (list.length===1?'':'s') + (nToday ? ' · ' + nToday + ' today' : ' · none today') + (apptFilter==='all' ? ' across all barbers.' : ' for ' + barberName(apptFilter) + '.')
+      : 'No upcoming appointments' + (apptFilter==='all' ? '.' : ' for ' + barberName(apptFilter) + '.') + ' Customer bookings and ones you add show up here.';
+    var lastDay = null, ul = null;
     list.forEach(function(b){
+      if (b.day !== lastDay){
+        lastDay = b.day;
+        var count = list.filter(function(x){ return x.day === b.day; }).length;
+        box.append(h('div',{class:'apday'}, h('span',{}, dayLabel(b.day)), h('span',{}, count + (count===1?' appt':' appts'))));
+        ul = h('ul',{class:'bk'}); box.append(ul);
+      }
       var id = 'b'+b.id, isArmed = !!armed[id];
       ul.append(h('li',{},
-        h('div',{}, h('div',{class:'who'}, b.customer_name), h('div',{class:'w'}, fmtDay(b.day)+' · '+fmtMin(b.start_min)),
+        h('div',{}, h('div',{class:'who'}, b.customer_name, apptFilter==='all' ? h('span',{class:'apbarber'}, barberName(b.barber_id)) : null),
+          h('div',{class:'w'}, fmtMin(b.start_min) + ' – ' + fmtMin(b.start_min + SLOT)),
           b.customer_phone ? h('div',{class:'w'}, h('a',{href:'tel:'+b.customer_phone.replace(/[^\d+]/g,'')}, b.customer_phone)) : null,
           b.note ? h('div',{class:'note'}, 'Note: '+b.note) : null),
         h('button',{class:'btn ghost small', type:'button', onclick:async function(){
@@ -904,6 +954,55 @@ textarea.input{resize:vertical;font:inherit}
           await refresh(true);
         }}, isArmed ? 'Confirm cancel' : 'Cancel')));
     });
+    if ($('appt-form').hidden === false) fillApptForm(true);
+  }
+  /* add an appointment from the barber's side */
+  function fillApptForm(keep){
+    var choices = deskChoices();
+    var bs = $('ap-barber'), cur = keep ? bs.value : (apptFilter && apptFilter !== 'all' ? apptFilter : (staff.barberId || (choices[0]&&choices[0].id)));
+    bs.textContent = ''; choices.forEach(function(b){ bs.append(h('option',{value:b.id}, b.name)); });
+    if (choices.some(function(b){ return b.id === cur; })) bs.value = cur;
+    $('ap-barber-wrap').hidden = choices.length < 2;
+    var ds = $('ap-day'), curDay = keep ? ds.value : null;
+    ds.textContent = '';
+    var open = days().filter(function(k){ return freeCount(bs.value, k) > 0; });
+    if (!open.length) ds.append(h('option',{value:''}, 'No open days'));
+    open.forEach(function(k){ ds.append(h('option',{value:k}, dayLabel(k))); });
+    if (curDay && open.indexOf(curDay) >= 0) ds.value = curDay;
+    fillApptTimes(keep);
+  }
+  function fillApptTimes(keep){
+    var ts = $('ap-time'), cur = keep ? ts.value : null;
+    ts.textContent = '';
+    var free = $('ap-day').value ? slotsFor($('ap-barber').value, $('ap-day').value).filter(function(x){ return !x.booked; }) : [];
+    if (!free.length) ts.append(h('option',{value:''}, 'No open times'));
+    free.forEach(function(x){ ts.append(h('option',{value:String(x.m)}, fmtMin(x.m))); });
+    if (cur && free.some(function(x){ return String(x.m) === cur; })) ts.value = cur;
+  }
+  async function saveAppt(){
+    var msg = $('ap-msg'); msg.textContent = '';
+    var bid = $('ap-barber').value, k = $('ap-day').value, t = $('ap-time').value, nm = $('ap-name').value.trim();
+    if (!bid || !k || !t){ msg.textContent = 'Pick a barber, day and time that are open.'; return; }
+    if (!nm){ msg.textContent = 'Enter the customer\'s name.'; $('ap-name').focus(); return; }
+    $('ap-save').disabled = true;
+    try {
+      var r = await sb.rpc('book_appointment', {p_barber:bid, p_day:k, p_start:Number(t), p_name:nm, p_phone:$('ap-phone').value.trim(), p_note:$('ap-note').value.trim()});
+      if (r.error){
+        var m = r.error.message || '';
+        msg.textContent = m.indexOf('slot_taken') >= 0 ? 'That time was just booked. Pick another one.'
+          : m.indexOf('invalid_phone') >= 0 ? 'That phone number does not look right. Fix it, or leave it blank.'
+          : m.indexOf('invalid_note') >= 0 ? 'The note is too long. Keep it under 200 characters.'
+          : m.indexOf('in_past') >= 0 ? 'That time has already passed. Pick a later one.'
+          : 'The appointment did not save. Check your connection and try again.';
+        await refresh(true); fillApptForm(true);
+      } else {
+        $('appt-form').hidden = true; $('ap-name').value = ''; $('ap-phone').value = ''; $('ap-note').value = '';
+        $('ap-ok').textContent = 'Appointment added for ' + nm + ': ' + barberName(bid) + ', ' + dayLabel(k) + ' at ' + fmtMin(Number(t)) + '.';
+        apptFilter = staff.isAdmin ? apptFilter : bid;
+        await refresh(true);
+      }
+    } catch(e){ msg.textContent = 'The appointment did not save. Check your connection and try again.'; }
+    $('ap-save').disabled = false;
   }
   function deskChoices(){
     if (!staff) return [];
@@ -1000,6 +1099,12 @@ textarea.input{resize:vertical;font:inherit}
   $('prof-spec').addEventListener('input', function(){ profDirty = true; });
   $('prof-bio').addEventListener('input', function(){ profDirty = true; });
   $('find-btn').addEventListener('click', findBooking);
+  $('appt-filter').addEventListener('change', function(e){ apptFilter = e.target.value; renderDeskBookings(); });
+  $('appt-new').addEventListener('click', function(){ $('ap-ok').textContent = ''; $('ap-msg').textContent = ''; $('appt-form').hidden = false; fillApptForm(false); $('ap-name').focus(); });
+  $('ap-cancel').addEventListener('click', function(){ $('appt-form').hidden = true; });
+  $('ap-barber').addEventListener('change', function(){ fillApptForm(true); });
+  $('ap-day').addEventListener('change', function(){ fillApptTimes(false); });
+  $('ap-save').addEventListener('click', saveAppt);
   $('cancel-name').addEventListener('keydown', function(e){ if (e.key === 'Enter') findBooking(); });
   $('act-filter').addEventListener('change', function(e){ watchBarber = e.target.value; lsSet('bs_filter', watchBarber); renderActivity(); });
   $('desk-barber').addEventListener('change', function(e){ deskBarber = e.target.value; profDirty = false; fillProfileFields(); renderDeskNotes(); renderDeskRows(); renderDeskBookings(); });
