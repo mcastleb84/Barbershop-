@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#5e1527">
-<title>Barbershop (test mode)</title>
+<title>Barbershop</title>
 <link rel="icon" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <script>
@@ -261,6 +261,18 @@ textarea.input{resize:vertical;font:inherit}
 .ownsec{border-top:1.5px solid var(--line);padding-top:14px;display:flex;flex-direction:column}
 .ownh{margin:0 0 8px;font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:.04em;text-transform:uppercase}
 #own-side .shop-edit{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;background:none;border:0;box-shadow:none;max-width:none;text-align:left;color:var(--ink)}
+.subpanel{margin-top:18px;padding-top:16px;border-top:1.5px solid var(--line)}
+.subh{margin:0 0 10px;font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:.04em;text-transform:uppercase}
+.menu-fab{position:fixed;z-index:35;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(12px,env(safe-area-inset-left,0px));display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;border:0;background:var(--surface);color:var(--ink);font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(0,0,0,.28)}
+.menu-item{display:block;width:100%;text-align:left;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-weight:600;font-size:15px}
+.menu-item:hover{border-color:var(--ink)}
+#pay-side{right:auto;left:0;transform:translateX(-100%);box-shadow:10px 0 36px rgba(0,0,0,.35);border-radius:0 18px 18px 0;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:18px;
+  transition:transform .42s cubic-bezier(.22,1,.36,1),visibility 0s linear .42s}
+#pay-side.open{transform:none;transition:transform .42s cubic-bezier(.22,1,.36,1),visibility 0s}
+#pay-scrim{animation:scrimIn .3s ease both}
+@keyframes scrimIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){#pay-side,#pay-side.open{transition:none}#pay-scrim{animation:none}}
+@media (max-width:700px){.banner-in{padding-top:58px}}
 .notice{background:var(--wash);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:14px;margin:0}
 .whorow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .whorow p{margin:0;overflow-wrap:anywhere}
@@ -270,15 +282,16 @@ textarea.input{resize:vertical;font:inherit}
 </style>
 </head>
 <body>
-<div role="note" style="background:#FFF1CC;color:#5A3A00;border-bottom:1px solid #E8C873;font:600 14px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));text-align:center">Test mode: no login needed. Anyone with this link can book and use the Barber desk. Use made-up names and phone numbers.</div>
 
 <div class="toast" id="toast" role="status" hidden></div>
+<button class="menu-fab" id="menu-fab" type="button" aria-controls="pay-side" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Menu</button>
 <div class="scrim" id="pay-scrim" hidden></div>
 <aside class="side" id="pay-side" role="dialog" aria-modal="true" aria-labelledby="pay-title">
   <div class="side-head">
-    <h2 id="pay-title">Pay for your cut</h2>
-    <button class="side-close" id="pay-close" type="button" aria-label="Close payment menu">&times;</button>
+    <h2 id="pay-title">Menu</h2>
+    <button class="side-close" id="pay-close" type="button" aria-label="Close menu">&times;</button>
   </div>
+  <h3 class="ownh" style="margin:0">Pay for your cut</h3>
   <p class="hint" style="margin:0">Done with your cut? Pay by credit card, Cash App or Venmo. Each button takes you to that site to pay. Paying online is optional; you can also pay at the shop.</p>
   <div class="field" id="pay-who-wrap" hidden>
     <label for="pay-who">Who are you paying?</label>
@@ -286,6 +299,14 @@ textarea.input{resize:vertical;font:inherit}
   </div>
   <div class="payopts" id="pay-opts"></div>
   <p class="hint" id="pay-empty" style="margin:0" hidden></p>
+  <section class="ownsec" style="gap:8px">
+    <h3 class="ownh" style="margin:0 0 4px">More</h3>
+    <button class="menu-item" type="button" data-menu="book">Book a cut</button>
+    <button class="menu-item" type="button" data-menu="app-install">Get the app</button>
+    <button class="menu-item" type="button" data-menu="tour-btn">How it works</button>
+    <button class="menu-item" type="button" data-menu="side-open" id="menu-login">Barber login</button>
+    <button class="menu-item" type="button" data-menu="owner-open" id="menu-owner" hidden>Owner settings</button>
+  </section>
 </aside>
 <div class="scrim" id="own-scrim" hidden></div>
 <aside class="side" id="own-side" role="dialog" aria-modal="true" aria-labelledby="own-title">
@@ -403,34 +424,35 @@ textarea.input{resize:vertical;font:inherit}
         <div id="bnotes"></div>
       </div>
       <div class="panel" id="dates-panel">
-        <h2 class="step-h"><span class="n" id="n-day">2</span>Pick a day</h2>
+        <h2 class="step-h"><span class="n" id="n-day">2</span>Pick a day, time and confirm</h2>
+        <h3 class="subh">Pick a day</h3>
         <div class="dates" id="dates"></div>
-      </div>
-      <div class="panel" id="times-panel">
-        <h2 class="step-h"><span class="n" id="n-time">3</span>Pick a time</h2>
-        <div id="times"></div>
-      </div>
-      <div class="panel" id="confirm-panel">
-        <h2 class="step-h"><span class="n" id="n-confirm">4</span>Confirm</h2>
-        <div id="confirmed" hidden></div>
-        <div class="form" id="form">
-          <div class="field">
-            <label for="cust-name">Your name</label>
-            <input class="input" id="cust-name" type="text" maxlength="60" autocomplete="name" placeholder="First and last name">
-          </div>
-          <div class="field">
-            <label for="cust-phone">Phone number <span class="opt">(optional)</span></label>
-            <input class="input" id="cust-phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" placeholder="(555) 555-0123">
-          </div>
-          <div class="field">
-            <label for="cust-note">Note for your barber <span class="opt">(optional)</span></label>
-            <textarea class="input" id="cust-note" rows="3" maxlength="200" placeholder="The cut you want, or anything your barber should know"></textarea>
-          </div>
-          <p class="summary" id="summary"></p>
-          <button class="btn" id="book-btn" type="button" disabled>Book appointment</button>
-          <p class="msg" id="book-msg" role="status"></p>
+        <div class="subpanel" id="times-panel">
+          <h3 class="subh"><span class="n" id="n-time" hidden>3</span>Pick a time</h3>
+          <div id="times"></div>
         </div>
-        <p class="policy">Need to cancel? Please notify us at least 24 hours before your appointment.</p>
+        <div class="subpanel" id="confirm-panel">
+          <h3 class="subh"><span class="n" id="n-confirm" hidden>3</span>Confirm</h3>
+          <div id="confirmed" hidden></div>
+          <div class="form" id="form">
+            <div class="field">
+              <label for="cust-name">Your name</label>
+              <input class="input" id="cust-name" type="text" maxlength="60" autocomplete="name" placeholder="First and last name">
+            </div>
+            <div class="field">
+              <label for="cust-phone">Phone number <span class="opt">(optional)</span></label>
+              <input class="input" id="cust-phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" placeholder="(555) 555-0123">
+            </div>
+            <div class="field">
+              <label for="cust-note">Note for your barber <span class="opt">(optional)</span></label>
+              <textarea class="input" id="cust-note" rows="3" maxlength="200" placeholder="The cut you want, or anything your barber should know"></textarea>
+            </div>
+            <p class="summary" id="summary"></p>
+            <button class="btn" id="book-btn" type="button" disabled>Book appointment</button>
+            <p class="msg" id="book-msg" role="status"></p>
+          </div>
+          <p class="policy">Need to cancel? Please notify us at least 24 hours before your appointment.</p>
+        </div>
       </div>
       <div class="panel" id="cancel-panel">
         <h2 class="step-h">Cancel an appointment</h2>
@@ -586,7 +608,6 @@ textarea.input{resize:vertical;font:inherit}
 <script>
 (function(){
   var SLOT = 30;
-  var TEST_MODE = true; // test.html only: everyone is treated as the shop owner, no login
   var CFG = window.BARBERSHOP_CONFIG || {};
   // Defaults shown until the database answers. The real values come from shop_settings and shop_hours.
   var SHOP = {name:'Barbershop', address:'123 Main Street, Anytown, NY 12345', phone:'(555) 555-0123'};
@@ -679,8 +700,13 @@ textarea.input{resize:vertical;font:inherit}
   var payReturn = null;
   function setPay(open){
     var el = $('pay-side');
-    if (open){ payReturn = document.activeElement; renderPayPanel(); $('pay-scrim').hidden = false; el.classList.add('open'); $('pay-quick').setAttribute('aria-expanded', 'true'); setTimeout(function(){ $('pay-close').focus(); }, 60); }
-    else if (el.classList.contains('open')){ $('pay-scrim').hidden = true; el.classList.remove('open'); $('pay-quick').setAttribute('aria-expanded', 'false'); if (payReturn && payReturn.focus) payReturn.focus(); }
+    if (open){
+      payReturn = document.activeElement; renderPayPanel();
+      $('menu-owner').hidden = !isAdmin; $('menu-login').textContent = session ? 'Barber account' : 'Barber login';
+      document.querySelector('[data-menu="app-install"]').hidden = $('app-install').hidden;
+      $('pay-scrim').hidden = false; el.classList.add('open'); $('pay-quick').setAttribute('aria-expanded', 'true'); $('menu-fab').setAttribute('aria-expanded', 'true'); setTimeout(function(){ $('pay-close').focus(); }, 60);
+    }
+    else if (el.classList.contains('open')){ $('pay-scrim').hidden = true; el.classList.remove('open'); $('pay-quick').setAttribute('aria-expanded', 'false'); $('menu-fab').setAttribute('aria-expanded', 'false'); if (payReturn && payReturn.focus) payReturn.focus(); }
   }
   function goPay(id){ if (id) payWho = id; setPay(true); }
   async function loadPay(){
@@ -1451,6 +1477,12 @@ textarea.input{resize:vertical;font:inherit}
   $('pay-who').addEventListener('change', function(e){ payWho = e.target.value; renderPayPanel(); });
   $('pay-quick').addEventListener('click', function(){ goPay(); });
   $('pay-close').addEventListener('click', function(){ setPay(false); });
+  $('menu-fab').addEventListener('click', function(){ setPay(!$('pay-side').classList.contains('open')); });
+  document.querySelectorAll('[data-menu]').forEach(function(b){ b.addEventListener('click', function(){
+    var target = b.dataset.menu; setPay(false);
+    if (target === 'book'){ location.hash = 'book'; return; }
+    setTimeout(function(){ var t = $(target); if (t) t.click(); }, 260);
+  }); });
   $('pay-scrim').addEventListener('click', function(){ setPay(false); });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setPay(false); });
   window.goPay = goPay;
@@ -1476,7 +1508,7 @@ textarea.input{resize:vertical;font:inherit}
     } catch(err){ msg.textContent = 'Could not sign in. Check your connection and try again.'; }
     $('login-btn').disabled = false;
   });
-  $('logout-btn').addEventListener('click', function(){ if (TEST_MODE){ setSide(false); return; } if (sb) sb.auth.signOut(); setSide(false); });
+  $('logout-btn').addEventListener('click', function(){ if (sb) sb.auth.signOut(); setSide(false); });
 
   /* ---------- sidebar ---------- */
   var sideReturn = null;
@@ -1585,7 +1617,6 @@ textarea.input{resize:vertical;font:inherit}
   }
 
   async function loadStaff(){
-    if (TEST_MODE){ staff = {barberId:null, isAdmin:true}; canEdit = true; isAdmin = true; activity = []; knownAct = null; deskBarber = null; renderContact(); return; }
     staff = null; canEdit = false; isAdmin = false; activity = []; knownAct = null;
     if (session){
       try {
@@ -1608,13 +1639,13 @@ textarea.input{resize:vertical;font:inherit}
     sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
     try {
       var s = await sb.auth.getSession();
-      session = TEST_MODE ? {user:{id:'test-mode'}} : (s.data && s.data.session ? s.data.session : null);
+      session = s.data && s.data.session ? s.data.session : null;
     } catch(e){ session = null; }
     await loadStaff();
     await refresh(true);
     loadPay(); loadTheme();
     applyTab();
-    if (!TEST_MODE) sb.auth.onAuthStateChange(function(ev, s2){
+    sb.auth.onAuthStateChange(function(ev, s2){
       setTimeout(async function(){
         var before = session && session.user ? session.user.id : null;
         session = s2 || null;
@@ -1638,7 +1669,7 @@ textarea.input{resize:vertical;font:inherit}
 (function(){
   // Barber desk: one section open at a time. Customer side: each opens on its own.
   var DESK = ['desk-bookings','desk-activity','desk-profile','desk-notes','desk-days'];
-  var SIDE = ['choose-panel','dates-panel','times-panel','confirm-panel','cancel-panel','desk-login','desk-top'];
+  var SIDE = ['choose-panel','dates-panel','cancel-panel','desk-login','desk-top'];
   var ASIDE = document.querySelector('aside.panel.hours');
   if (ASIDE && !ASIDE.id) ASIDE.id = 'hours-panel';
   var OPEN_AT_START = {}; // every section starts hidden
@@ -1678,7 +1709,7 @@ textarea.input{resize:vertical;font:inherit}
   function payLink(){ if (location.hash === '#pay' && window.goPay) setTimeout(function(){ window.goPay(); }, 300); }
   window.addEventListener('hashchange', payLink); payLink();
   document.addEventListener('click', function(e){
-    var t = e.target, next = t.closest('#choose-panel a.barber') ? 'dates-panel' : t.closest('#dates-panel button.date') ? 'times-panel' : t.closest('#times-panel button.slot') ? 'confirm-panel' : null;
+    var t = e.target, next = t.closest('#choose-panel a.barber') ? 'dates-panel' : null;
     if (next) setTimeout(function(){ setOpen(next, true); }, 0);
   }, true);
   window.openSection = function(id){
@@ -1808,10 +1839,10 @@ textarea.input{resize:vertical;font:inherit}
     {title:'Welcome', text:'This quick tour shows you how to book a haircut. It takes about a minute.', before:book},
     {target:'#contact', title:'The shop', text:'Tap the address for directions or the phone number to call.'},
     {target:'#choose-panel', title:'1. Choose your barber', text:'Every section starts folded. Tap a title to open it, then tap a barber to pick them. The next step opens by itself.', before:function(){ book(); window.openSection && window.openSection('choose-panel'); }},
-    {target:'#dates-panel', title:'2. Pick a day', text:'Only days your barber is working show up.', before:function(){ window.openSection && window.openSection('dates-panel'); }},
-    {target:'#times-panel', title:'3. Pick a time', text:'Open times show in 30 minute slots. Taken times are greyed out.', before:function(){ window.openSection && window.openSection('times-panel'); }},
-    {target:'#confirm-panel', before:function(){ window.openSection && window.openSection('confirm-panel'); }, title:'4. Confirm', text:'Add your name, and your phone if you want a call, then book. Nothing to pay yet.'},
-    {target:'#pay-quick', title:'Pay after your cut', text:'When your cut is done, tap Pay. A menu slides open with credit card, Cash App and Venmo. It is optional; you can also pay at the shop.'},
+    {target:'#dates', title:'2. Pick a day', text:'Only days your barber is working show up.', before:function(){ window.openSection && window.openSection('dates-panel'); }},
+    {target:'#times-panel', title:'Then pick a time', text:'Open times show in 30 minute slots. Taken times are greyed out.', before:function(){ window.openSection && window.openSection('dates-panel'); }},
+    {target:'#confirm-panel', before:function(){ window.openSection && window.openSection('dates-panel'); }, title:'And confirm', text:'Add your name, and your phone if you want a call, then book. Nothing to pay yet.'},
+    {target:'#menu-fab', title:'The menu', text:'Tap Menu in the top corner anytime. Pay for your cut is right at the top: credit card, Cash App or Venmo. It is optional; you can also pay at the shop.'},
     {target:'#cancel-panel', title:'Need to cancel?', text:'Tap here, then enter the name you booked under to find and cancel your appointment.'},
     {target:'#hours-panel', title:'Shop hours', text:'Tap to see the hours for every day of the week.'},
     {target:'#app-install', title:'Get the app', text:'Tap here to put the Barbershop app on your home screen, so booking is one tap away.'},
