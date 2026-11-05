@@ -269,6 +269,7 @@ textarea.input{resize:vertical;font:inherit}
     <button class="tab" role="tab" id="tab-book" aria-selected="true">Book a cut</button>
     <button class="tab" role="tab" id="tab-barber" aria-selected="false">Barber desk<span class="badge" id="badge" hidden></span></button>
   </nav>
+  <button class="side-open" id="pay-quick" type="button"><span class="paydot" style="background:#17784a" aria-hidden="true">$</span>Pay</button>
   <button class="side-open" id="tour-btn" type="button">How it works</button>
   <button class="side-open" id="side-open" type="button" aria-haspopup="dialog" aria-controls="side" aria-expanded="false"><span class="dot2" aria-hidden="true"></span><span id="side-open-text">Barber login</span></button>
 </div>
@@ -317,7 +318,7 @@ textarea.input{resize:vertical;font:inherit}
       </div>
       <div class="panel" id="pay-panel">
         <h2 class="step-h">Pay for your cut</h2>
-        <p class="hint" style="margin-bottom:12px">Pay ahead or after your cut. You enter the amount on the next page. You can also pay at the shop.</p>
+        <p class="hint" style="margin-bottom:12px">Done with your cut? Pay here in a few taps. You enter the amount on the next page. Paying online is optional; you can also pay at the shop.</p>
         <div class="field" id="pay-who-wrap" style="max-width:300px;margin-bottom:12px" hidden>
           <label for="pay-who">Who are you paying?</label>
           <select class="sel" id="pay-who"></select>
@@ -565,7 +566,7 @@ textarea.input{resize:vertical;font:inherit}
   }
   function goPay(id){
     if (id) payWho = id; renderPayPanel();
-    if (location.hash === '#barber') location.hash = 'book';
+    if (location.hash === '#barber' || /^#profile-/.test(location.hash)) location.hash = 'book';
     if (window.openSection) window.openSection('pay-panel');
     setTimeout(function(){ $('pay-panel').scrollIntoView({block:'start', behavior:'smooth'}); }, 60);
   }
@@ -945,10 +946,6 @@ textarea.input{resize:vertical;font:inherit}
         h('h3',{},'You are booked'),
         h('p',{}, confirmed.name+', see you '+fmtDay(confirmed.date)+' at '+fmtMin(confirmed.start)+'.'),
         h('p',{class:'hint'}, 'Barber: '+barberName(confirmed.barberId)),
-        hasPay(payFor(confirmed.barberId)) ? h('div',{class:'payblock'},
-          h('p',{style:'margin:0 0 8px;font-weight:700'}, 'Pay now (optional)'),
-          h('button',{class:'btn small', type:'button', onclick:function(){ goPay(hasPay(BPAY[confirmed.barberId]) ? confirmed.barberId : 'shop'); }}, 'Go to payment'),
-          h('p',{class:'hint', style:'margin:8px 0 0'}, 'Card, Cash App or Venmo. You can also pay at the shop.')) : null,
         cancelArmed && hoursUntil(confirmed.date, confirmed.start) < 24
           ? h('p',{class:'hint'}, 'This is less than 24 hours before your appointment, which is later than our cancellation policy asks. Please also call the shop.') : null,
         cancelErr ? h('p',{class:'msg'}, 'Could not cancel. Please call the shop.') : null,
@@ -1267,6 +1264,8 @@ textarea.input{resize:vertical;font:inherit}
   $('prof-venmo').addEventListener('input', function(){ profDirty = true; });
   $('find-btn').addEventListener('click', findBooking);
   $('pay-who').addEventListener('change', function(e){ payWho = e.target.value; renderPayPanel(); });
+  $('pay-quick').addEventListener('click', function(){ goPay(); });
+  window.goPay = goPay;
   $('appt-filter').addEventListener('change', function(e){ apptFilter = e.target.value; renderDeskBookings(); });
   $('appt-new').addEventListener('click', function(){ $('ap-ok').textContent = ''; $('ap-msg').textContent = ''; $('appt-form').hidden = false; fillApptForm(false); $('ap-name').focus(); });
   $('ap-cancel').addEventListener('click', function(){ $('appt-form').hidden = true; });
@@ -1453,7 +1452,7 @@ textarea.input{resize:vertical;font:inherit}
   var SIDE = ['choose-panel','dates-panel','times-panel','confirm-panel','pay-panel','cancel-panel','desk-login','desk-top'];
   var ASIDE = document.querySelector('aside.panel.hours');
   if (ASIDE && !ASIDE.id) ASIDE.id = 'hours-panel';
-  var OPEN_AT_START = {'desk-bookings': true, 'choose-panel': true, 'dates-panel': true, 'times-panel': true, 'confirm-panel': true, 'pay-panel': true, 'desk-login': true, 'desk-top': true};
+  var OPEN_AT_START = {'desk-bookings': true, 'choose-panel': true, 'dates-panel': true, 'times-panel': true, 'confirm-panel': true, 'desk-login': true, 'desk-top': true};
   var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   var all = {};
   function setOpen(id, open){
@@ -1487,6 +1486,8 @@ textarea.input{resize:vertical;font:inherit}
   DESK.forEach(function(id){ make(id, 'desk'); });
   SIDE.forEach(function(id){ make(id, 'side'); });
   if (ASIDE) make(ASIDE.id, 'side');
+  function payLink(){ if (location.hash === '#pay' && window.goPay) setTimeout(function(){ window.goPay(); }, 300); }
+  window.addEventListener('hashchange', payLink); payLink();
   window.openSection = function(id){
     if (!all[id]) return;
     if (all[id].group === 'desk') DESK.forEach(function(o){ if (o !== id) setOpen(o, false); });
@@ -1616,8 +1617,8 @@ textarea.input{resize:vertical;font:inherit}
     {target:'#choose-panel', title:'1. Choose your barber', text:'Tap a barber to pick them. Tap their name to see their profile, specialties and how to pay them.', before:book},
     {target:'#dates-panel', title:'2. Pick a day', text:'Only days your barber is working show up.'},
     {target:'#times-panel', title:'3. Pick a time', text:'Open times show in 30 minute slots. Taken times are greyed out.'},
-    {target:'#confirm-panel', title:'4. Confirm', text:'Add your name, and your phone if you want a call. After you book, you can go straight to payment, or pay at the shop.'},
-    {target:'#pay-panel', title:'Pay for your cut', text:'Pay by credit card, Cash App or Venmo. Pick who you are paying, then enter the amount on the next page. You can also pay at the shop.'},
+    {target:'#confirm-panel', title:'4. Confirm', text:'Add your name, and your phone if you want a call, then book. Nothing to pay yet.'},
+    {target:'#pay-quick', title:'Pay after your cut', text:'When your cut is done, tap Pay to pay by credit card, Cash App or Venmo. It is optional; you can also pay at the shop.'},
     {target:'#cancel-panel', title:'Need to cancel?', text:'Tap here, then enter the name you booked under to find and cancel your appointment.'},
     {target:'#hours-panel', title:'Shop hours', text:'Tap to see the hours for every day of the week.'},
     {target:'#tab-barber', title:'For barbers', text:'Barbers use the Barber desk to see appointments and set their hours. Tap How it works there for the barber tour.'},
