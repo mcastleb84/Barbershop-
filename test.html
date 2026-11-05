@@ -195,6 +195,8 @@ textarea.input{resize:vertical;font:inherit}
 .payopt{display:flex;align-items:center;gap:12px;text-decoration:none;padding:14px 16px;font-size:16px;align-self:stretch;background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
 .payopt:hover{border-color:var(--ink)}
 .payopt .paydot{width:28px;height:28px;border-radius:8px;font-size:15px}
+.paytxt{display:flex;flex-direction:column;line-height:1.25}
+.paytxt small{font-size:12px;font-weight:500;color:var(--muted)}
 .paybtn{display:inline-flex;align-items:center;gap:8px;text-decoration:none}
 .paybtn .paydot{width:22px;height:22px;font-size:13px}
 .daytabs{display:flex;gap:4px;padding:4px;border:1.5px solid var(--line);border-radius:10px;margin:4px 0 8px;max-width:420px}
@@ -319,7 +321,7 @@ textarea.input{resize:vertical;font:inherit}
       </div>
       <div class="panel" id="pay-panel">
         <h2 class="step-h">Pay for your cut</h2>
-        <p class="hint" style="margin-bottom:12px">Done with your cut? Tap Cash App or Venmo to go to their site and pay. Paying online is optional; you can also pay at the shop.</p>
+        <p class="hint" style="margin-bottom:12px">Done with your cut? Pay by credit card, Cash App or Venmo. Each button takes you to that site to pay. Paying online is optional; you can also pay at the shop.</p>
         <div class="field" id="pay-who-wrap" style="max-width:300px;margin-bottom:12px" hidden>
           <label for="pay-who">Who are you paying?</label>
           <select class="sel" id="pay-who"></select>
@@ -560,14 +562,14 @@ textarea.input{resize:vertical;font:inherit}
     if (payWho) sel.value = payWho;
     $('pay-who-wrap').hidden = ch.length < 2;
     opts.textContent = '';
-    var cur = ch.filter(function(c){ return c.id === payWho; })[0];
-    if (cur) payButtons('btn payopt', cur.pay).forEach(function(a){ opts.append(a); });
-    else {
-      // No accounts set up: the buttons simply open the Cash App and Venmo websites.
-      opts.append(
-        h('a',{class:'btn payopt', href:'https://cash.app', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#00D64F', 'aria-hidden':'true'}, '$'), 'Pay with Cash App'),
-        h('a',{class:'btn payopt', href:'https://venmo.com', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#008CFF', 'aria-hidden':'true'}, 'V'), 'Pay with Venmo'));
-    }
+    var cur = ch.filter(function(c){ return c.id === payWho; })[0], p = cur ? cur.pay : {};
+    // Always three buttons. Each goes to the account that is set up, or to that service's website.
+    var card = p.card_link || 'https://www.paypal.com/myaccount/transfer/homepage/pay';
+    opts.append(
+      h('a',{class:'btn payopt', href:card, target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#1c3d7a', 'aria-hidden':'true'}, cardIcon()),
+        h('span',{class:'paytxt'}, 'Pay by credit card', h('small',{}, p.card_link ? 'Secure checkout. Any credit or debit card works.' : 'Through PayPal. Any credit or debit card works.'))),
+      h('a',{class:'btn payopt', href: p.cashapp ? 'https://cash.app/$' + encodeURIComponent(p.cashapp) : 'https://cash.app', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#00D64F', 'aria-hidden':'true'}, '$'), 'Pay with Cash App'),
+      h('a',{class:'btn payopt', href: p.venmo ? 'https://venmo.com/u/' + encodeURIComponent(p.venmo) : 'https://venmo.com', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#008CFF', 'aria-hidden':'true'}, 'V'), 'Pay with Venmo'));
     $('pay-empty').hidden = true;
     $('pay-empty').textContent = isAdmin ? 'No payment options yet. Owner: add your Cash App, Venmo and card link to config.js.' : 'Online payment is not set up yet. You can pay at the shop.';
   }
@@ -1629,7 +1631,7 @@ textarea.input{resize:vertical;font:inherit}
     {target:'#dates-panel', title:'2. Pick a day', text:'Only days your barber is working show up.'},
     {target:'#times-panel', title:'3. Pick a time', text:'Open times show in 30 minute slots. Taken times are greyed out.'},
     {target:'#confirm-panel', title:'4. Confirm', text:'Add your name, and your phone if you want a call, then book. Nothing to pay yet.'},
-    {target:'#pay-quick', title:'Pay after your cut', text:'When your cut is done, tap Pay, then pick credit card, Cash App or Venmo. It is optional; you can also pay at the shop.'},
+    {target:'#pay-quick', title:'Pay after your cut', text:'When your cut is done, tap Pay, then pick credit card, Cash App or Venmo. Each one opens that site. It is optional; you can also pay at the shop.'},
     {target:'#cancel-panel', title:'Need to cancel?', text:'Tap here, then enter the name you booked under to find and cancel your appointment.'},
     {target:'#hours-panel', title:'Shop hours', text:'Tap to see the hours for every day of the week.'},
     {target:'#tab-barber', title:'For barbers', text:'Barbers use the Barber desk to see appointments and set their hours. Tap How it works there for the barber tour.'},
