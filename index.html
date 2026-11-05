@@ -196,6 +196,13 @@ textarea.input{resize:vertical;font:inherit}
 .daytabs{display:flex;gap:4px;padding:4px;border:1.5px solid var(--line);border-radius:10px;margin:4px 0 8px;max-width:420px}
 .daytab{flex:1;border:0;background:transparent;padding:8px 6px;border-radius:7px;font:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
 .daytab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+.ctoggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
+.ctoggle:focus-visible{outline:2px solid currentColor;outline-offset:4px;border-radius:4px}
+.chev{flex:none;width:22px;height:22px;transition:transform .2s ease}
+.ctoggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.chint{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted);margin-left:auto;margin-right:6px;white-space:nowrap}
+.panel.is-collapsed .step-h{margin-bottom:0}
+@media (prefers-reduced-motion:reduce){.chev{transition:none}}
 .notice{background:var(--wash);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:14px;margin:0}
 .whorow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .whorow p{margin:0;overflow-wrap:anywhere}
@@ -256,6 +263,7 @@ textarea.input{resize:vertical;font:inherit}
     <button class="tab" role="tab" id="tab-book" aria-selected="true">Book a cut</button>
     <button class="tab" role="tab" id="tab-barber" aria-selected="false">Barber desk<span class="badge" id="badge" hidden></span></button>
   </nav>
+  <button class="side-open" id="tour-btn" type="button">How it works</button>
   <button class="side-open" id="side-open" type="button" aria-haspopup="dialog" aria-controls="side" aria-expanded="false"><span class="dot2" aria-hidden="true"></span><span id="side-open-text">Barber login</span></button>
 </div>
 
@@ -354,7 +362,7 @@ textarea.input{resize:vertical;font:inherit}
         <div id="bk"></div>
       </div>
       <div class="panel" id="desk-top" hidden>
-        <h2 class="step-h">Your availability</h2>
+        <h2 class="step-h">Choose a barber</h2>
         <div class="field" style="max-width:260px">
           <label for="desk-barber">Barber</label>
           <select class="sel" id="desk-barber"></select>
@@ -1054,6 +1062,7 @@ textarea.input{resize:vertical;font:inherit}
       help.append(who + ' has no open days in the next 2 weeks, so there is nothing to pick yet. ',
         h('button',{class:'btn ghost small', type:'button', onclick:function(){
           deskBarber = bs.value; $('desk-barber').value = deskBarber; profDirty = false; fillProfileFields(); renderDeskNotes(); renderDeskRows();
+          if (window.openSection) window.openSection('desk-days');
           $('desk-days').scrollIntoView({block:'start', behavior:'smooth'});
         }}, 'Set ' + who + '\'s days'),
         others.length ? h('span',{}, ' or pick another barber above.') : null);
@@ -1367,6 +1376,210 @@ textarea.input{resize:vertical;font:inherit}
     }, 15000);
   }
   start();
+})();
+</script>
+
+<script>
+/* ---------- fold-away sections ---------- */
+(function(){
+  // Barber desk: one section open at a time. Customer side: each opens on its own.
+  var DESK = ['desk-bookings','desk-activity','desk-profile','desk-notes','desk-days'];
+  var SIDE = ['cancel-panel'];
+  var ASIDE = document.querySelector('aside.panel.hours');
+  if (ASIDE && !ASIDE.id) ASIDE.id = 'hours-panel';
+  var OPEN_AT_START = {'desk-bookings': true};
+  var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  var all = {};
+  function setOpen(id, open){
+    var c = all[id]; if (!c) return;
+    c.body.hidden = !open;
+    c.btn.setAttribute('aria-expanded', String(open));
+    c.panel.classList.toggle('is-collapsed', !open);
+    c.hint.textContent = open ? 'Hide' : 'Show';
+  }
+  function make(id, group){
+    var panel = document.getElementById(id); if (!panel) return;
+    var h2 = panel.querySelector('.step-h'); if (!h2) return;
+    var body = document.createElement('div'); body.className = 'cbody'; body.id = id + '-body';
+    while (h2.nextSibling) body.appendChild(h2.nextSibling);
+    panel.appendChild(body);
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'ctoggle'; btn.setAttribute('aria-controls', body.id);
+    var label = document.createElement('span'); label.textContent = h2.textContent;
+    var hint = document.createElement('span'); hint.className = 'chint';
+    h2.textContent = ''; btn.append(label, hint); btn.insertAdjacentHTML('beforeend', CHEV); h2.appendChild(btn);
+    all[id] = {panel: panel, body: body, btn: btn, hint: hint, group: group};
+    btn.addEventListener('click', function(){
+      var open = body.hidden;
+      if (open && group === 'desk') DESK.forEach(function(o){ if (o !== id) setOpen(o, false); });
+      setOpen(id, open);
+      if (open && group === 'desk') setTimeout(function(){ var r = panel.getBoundingClientRect(); if (r.top < 0 || r.top > innerHeight * 0.6) panel.scrollIntoView({block:'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); }, 30);
+    });
+    setOpen(id, !!OPEN_AT_START[id]);
+  }
+  DESK.forEach(function(id){ make(id, 'desk'); });
+  SIDE.forEach(function(id){ make(id, 'side'); });
+  if (ASIDE) make(ASIDE.id, 'side');
+  window.openSection = function(id){
+    if (!all[id]) return;
+    if (all[id].group === 'desk') DESK.forEach(function(o){ if (o !== id) setOpen(o, false); });
+    setOpen(id, true);
+  };
+})();
+</script>
+<script>
+/* ---------- guided tour ---------- */
+(function(){
+  const css = `
+  .tour-shade{position:fixed;inset:0;z-index:60;background:rgba(20,12,6,.55)}
+  .tour-hole{position:fixed;z-index:61;border-radius:12px;box-shadow:0 0 0 9999px rgba(20,12,6,.55),0 0 0 3px var(--accent);pointer-events:none;transition:all .25s ease}
+  .tour-tip{position:fixed;z-index:62;width:min(340px,calc(100vw - 32px));background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 14px 40px rgba(20,12,6,.3);display:flex;flex-direction:column;gap:10px;transition:top .25s ease,left .25s ease}
+  .tour-tip h3{font-family:var(--font-display);text-transform:uppercase;letter-spacing:.03em;font-size:22px;font-size:19px;line-height:1.2;margin:0}
+  .tour-tip p{margin:0;font-size:15px;line-height:1.5;color:var(--ink)}
+  .tour-dots{display:flex;gap:5px}
+  .tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+  .tour-dots i.on{background:var(--accent)}
+  .tour-nav{display:flex;align-items:center;gap:8px}
+  .tour-nav .sp{flex:1}
+  .tour-skip{background:none;border:0;color:var(--muted);font:inherit;font-size:14px;padding:6px 4px;cursor:pointer;text-decoration:underline}
+  @media (prefers-reduced-motion:reduce){.tour-hole,.tour-tip{transition:none}}`;
+  const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
+
+  let steps = [], i = 0, key = "", shade, hole, tip, prevFocus = null, onEnd = null;
+  const visible = el => el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+  const targetOf = s => s.target ? (typeof s.target === "function" ? s.target() : document.querySelector(s.target)) : null;
+
+  function build(){
+    shade = document.createElement("div"); shade.className = "tour-shade";
+    hole = document.createElement("div"); hole.className = "tour-hole";
+    tip = document.createElement("div"); tip.className = "tour-tip";
+    tip.setAttribute("role", "dialog"); tip.setAttribute("aria-modal", "true"); tip.setAttribute("aria-labelledby", "tour-h");
+    document.body.append(shade, hole, tip);
+    shade.addEventListener("click", () => go(1));
+    addEventListener("resize", place); addEventListener("scroll", place, true);
+    document.addEventListener("keydown", keys);
+  }
+  function keys(e){
+    if (!tip) return;
+    if (e.key === "Escape") end(false);
+    else if (e.key === "ArrowRight") go(1);
+    else if (e.key === "ArrowLeft") go(-1);
+  }
+  function place(){
+    if (!tip) return;
+    const s = steps[i], el = targetOf(s), pad = 6, vw = innerWidth, vh = innerHeight;
+    if (!el || !visible(el)) {
+      hole.style.display = "none";
+      shade.style.background = "";
+      tip.style.top = Math.max(16, (vh - tip.offsetHeight) / 2) + "px";
+      tip.style.left = Math.max(16, (vw - tip.offsetWidth) / 2) + "px";
+      return;
+    }
+    shade.style.background = "transparent";
+    hole.style.display = "";
+    const r = el.getBoundingClientRect();
+    hole.style.cssText = `display:block;top:${r.top - pad}px;left:${r.left - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px`;
+    const th = tip.offsetHeight, tw = tip.offsetWidth, gap = 14;
+    let top = r.bottom + pad + gap;
+    if (top + th > vh - 12) top = r.top - pad - gap - th;
+    if (top < 12) top = Math.min(vh - th - 12, Math.max(12, r.bottom + pad + gap));
+    let left = r.left + r.width / 2 - tw / 2;
+    left = Math.max(16, Math.min(vw - tw - 16, left));
+    tip.style.top = top + "px"; tip.style.left = left + "px";
+  }
+  function show(){
+    const s = steps[i];
+    if (s.before) { try { s.before(); } catch (e) {} }
+    const el = targetOf(s);
+    if (s.target && (!el || !visible(el))) {
+      if (s.before) setTimeout(() => { const e2 = targetOf(s); if (!e2 || !visible(e2)) go(dir || 1); else render(e2); }, 260);
+      else { go(dir || 1); }
+      return;
+    }
+    render(el);
+  }
+  let dir = 1;
+  function render(el){
+    const s = steps[i], last = i === steps.length - 1;
+    const esc2 = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    tip.innerHTML = `<div class="tour-dots" aria-hidden="true">${steps.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>
+      <h3 id="tour-h">${esc2(s.title)}</h3><p>${esc2(s.text)}</p>
+      <div class="tour-nav">${last ? "" : '<button type="button" class="tour-skip" data-t="skip">Skip tour</button>'}<span class="sp"></span>
+      ${i > 0 ? '<button type="button" class="btn ghost small" data-t="back">Back</button>' : ""}
+      <button type="button" class="btn small" data-t="next">${last ? "Done" : "Next"}</button></div>
+      <span style="font-size:12px;color:var(--muted)">Step ${i + 1} of ${steps.length}</span>`;
+    tip.querySelectorAll("[data-t]").forEach(b => b.addEventListener("click", () => {
+      const t = b.dataset.t; if (t === "skip") end(false); else if (t === "back") go(-1); else go(1);
+    }));
+    if (el) el.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    place(); setTimeout(place, 320); setTimeout(place, 650);
+    const nx = tip.querySelector('[data-t="next"]'); if (nx) nx.focus({ preventScroll: true });
+  }
+  function go(d){
+    const s = steps[i]; if (s && s.after) { try { s.after(); } catch (e) {} }
+    dir = d; i += d;
+    if (i < 0) { i = 0; dir = 1; }
+    if (i >= steps.length) { end(true); return; }
+    show();
+  }
+  function end(done){
+    const s = steps[i]; if (s && s.after) { try { s.after(); } catch (e) {} }
+    [shade, hole, tip].forEach(n => n && n.remove()); shade = hole = tip = null;
+    removeEventListener("resize", place); removeEventListener("scroll", place, true);
+    document.removeEventListener("keydown", keys);
+    try { localStorage.setItem(key, "1"); } catch (e) {}
+    if (onEnd) try { onEnd(done); } catch (e) {}
+    if (prevFocus && prevFocus.focus) prevFocus.focus({ preventScroll: true });
+  }
+  window.startTour = function(list, storageKey, cb){
+    if (tip) return;
+    steps = list; i = 0; dir = 1; key = storageKey; onEnd = cb || null; prevFocus = document.activeElement;
+    build(); show();
+  };
+  window.tourSeen = k => { try { return localStorage.getItem(k) === "1"; } catch (e) { return true; } };
+})();
+
+(function(){
+  var book = function(){ if (location.hash === '#barber' || /^#profile-/.test(location.hash)) location.hash = 'book'; };
+  var desk = function(){ if (location.hash !== '#barber') location.hash = 'barber'; };
+  var open = function(id){ return function(){ desk(); if (window.openSection) window.openSection(id); }; };
+  var CUSTOMER = [
+    {title:'Welcome', text:'This quick tour shows you how to book a haircut. It takes about a minute.', before:book},
+    {target:'#contact', title:'The shop', text:'Tap the address for directions or the phone number to call. If the shop takes Cash App or Venmo, the Pay buttons are here too.'},
+    {target:'#choose-panel', title:'1. Choose your barber', text:'Tap a barber to pick them. Tap their name to see their profile, specialties and how to pay them.', before:book},
+    {target:'#dates-panel', title:'2. Pick a day', text:'Only days your barber is working show up.'},
+    {target:'#times-panel', title:'3. Pick a time', text:'Open times show in 30 minute slots. Taken times are greyed out.'},
+    {target:'#confirm-panel', title:'4. Confirm', text:'Add your name, and your phone if you want a call. After you book, you can pay ahead with Cash App or Venmo, or pay at the shop.'},
+    {target:'#cancel-panel', title:'Need to cancel?', text:'Tap here, then enter the name you booked under to find and cancel your appointment.'},
+    {target:'#hours-panel', title:'Shop hours', text:'Tap to see the hours for every day of the week.'},
+    {target:'#tab-barber', title:'For barbers', text:'Barbers use the Barber desk to see appointments and set their hours. Tap How it works there for the barber tour.'},
+    {title:'You are all set', text:'Replay this tour anytime with the How it works button.', before:book}
+  ];
+  var BARBER = [
+    {title:'Barber desk', text:'This tour walks you through your desk: appointments, walk-ins, your hours and your profile.', before:desk},
+    {target:'#desk-login', title:'Sign in first', text:'Tap Open Barber login and sign in with your email and password to see your desk.'},
+    {target:'#desk-bookings', title:'Appointments', text:'Everything booked with you, grouped by day: name, time, phone and notes. The owner can switch between barbers with Show.', before:open('desk-bookings')},
+    {target:'#appt-new', title:'Add a walk-in', text:'Booking someone in person or over the phone? Add it here so nobody else can take that time.', before:open('desk-bookings')},
+    {target:'#desk-top', title:'Choose a barber', text:'The sections below are for the barber picked here.'},
+    {target:'#desk-activity', title:'Recent activity', text:'New bookings and cancellations show up here. Keep the page open to get alerts.', before:open('desk-activity')},
+    {target:'#desk-profile', title:'Your profile', text:'Your specialties, a short bio, and your own Cash App and Venmo. Customers see these on your profile.', before:open('desk-profile')},
+    {target:'#desk-notes', title:'Notes for customers', text:'Going on vacation or leaving early? Post a note and customers will see it when booking.', before:open('desk-notes')},
+    {target:'#desk-days', title:'Your hours', text:'Turn days on or off and set your hours, then tap Save day. Use the tabs to see Today, Tomorrow or the next 2 weeks.', before:open('desk-days')},
+    {target:'#side-open', title:'Your account', text:'Log out here when you are done.'},
+    {title:'You are all set', text:'Tap a section title to open it. Opening one folds the others away. Replay this tour anytime with How it works.', before:open('desk-bookings')}
+  ];
+  function run(){ if (location.hash === '#barber') startTour(BARBER, 'bs.tour.barber'); else startTour(CUSTOMER, 'bs.tour.customer'); }
+  var btn = document.getElementById('tour-btn'); if (btn) btn.addEventListener('click', run);
+  function maybeAuto(){
+    setTimeout(function(){
+      if (document.querySelector('.tour-tip')) return;
+      var deskOn = location.hash === '#barber' && !document.getElementById('desk-bookings').hidden;
+      if (deskOn && !tourSeen('bs.tour.barber')) startTour(BARBER, 'bs.tour.barber');
+      else if (location.hash !== '#barber' && !tourSeen('bs.tour.customer')) startTour(CUSTOMER, 'bs.tour.customer');
+    }, 1800);
+  }
+  maybeAuto();
+  window.addEventListener('hashchange', function(){ if (location.hash === '#barber') maybeAuto(); });
 })();
 </script>
 </body>
