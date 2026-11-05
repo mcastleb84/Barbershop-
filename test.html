@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#5e1527">
-<title>Barbershop (test mode)</title>
+<title>Barbershop</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
@@ -198,6 +198,7 @@ textarea.input{resize:vertical;font:inherit}
 .daytab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
 .ctoggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
 .ctoggle:focus-visible{outline:2px solid currentColor;outline-offset:4px;border-radius:4px}
+.clabel{display:flex;align-items:baseline;gap:10px;min-width:0}
 .chev{flex:none;width:22px;height:22px;transition:transform .2s ease}
 .ctoggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .chint{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted);margin-left:auto;margin-right:6px;white-space:nowrap}
@@ -212,7 +213,6 @@ textarea.input{resize:vertical;font:inherit}
 </style>
 </head>
 <body>
-<div role="note" style="background:#FFF1CC;color:#5A3A00;border-bottom:1px solid #E8C873;font:600 14px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));text-align:center">Test mode: no login needed. Anyone with this link can book and use the Barber desk. Use made-up names and phone numbers.</div>
 
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="scrim" id="scrim" hidden></div>
@@ -461,7 +461,6 @@ textarea.input{resize:vertical;font:inherit}
 <script>
 (function(){
   var SLOT = 30;
-  var TEST_MODE = true; // test.html only: everyone is treated as the shop owner, no login
   var CFG = window.BARBERSHOP_CONFIG || {};
   // Defaults shown until the database answers. The real values come from shop_settings and shop_hours.
   var SHOP = {name:'Barbershop', address:'123 Main Street, Anytown, NY 12345', phone:'(555) 555-0123'};
@@ -1225,7 +1224,7 @@ textarea.input{resize:vertical;font:inherit}
     } catch(err){ msg.textContent = 'Could not sign in. Check your connection and try again.'; }
     $('login-btn').disabled = false;
   });
-  $('logout-btn').addEventListener('click', function(){ if (TEST_MODE){ setSide(false); return; } if (sb) sb.auth.signOut(); setSide(false); });
+  $('logout-btn').addEventListener('click', function(){ if (sb) sb.auth.signOut(); setSide(false); });
 
   /* ---------- sidebar ---------- */
   var sideReturn = null;
@@ -1334,7 +1333,6 @@ textarea.input{resize:vertical;font:inherit}
   }
 
   async function loadStaff(){
-    if (TEST_MODE){ staff = {barberId:null, isAdmin:true}; canEdit = true; isAdmin = true; activity = []; knownAct = null; deskBarber = null; renderContact(); return; }
     staff = null; canEdit = false; isAdmin = false; activity = []; knownAct = null;
     if (session){
       try {
@@ -1357,13 +1355,13 @@ textarea.input{resize:vertical;font:inherit}
     sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
     try {
       var s = await sb.auth.getSession();
-      session = TEST_MODE ? {user:{id:'test-mode'}} : (s.data && s.data.session ? s.data.session : null);
+      session = s.data && s.data.session ? s.data.session : null;
     } catch(e){ session = null; }
     await loadStaff();
     await refresh(true);
     loadPay();
     applyTab();
-    if (!TEST_MODE) sb.auth.onAuthStateChange(function(ev, s2){
+    sb.auth.onAuthStateChange(function(ev, s2){
       setTimeout(async function(){
         var before = session && session.user ? session.user.id : null;
         session = s2 || null;
@@ -1387,10 +1385,10 @@ textarea.input{resize:vertical;font:inherit}
 (function(){
   // Barber desk: one section open at a time. Customer side: each opens on its own.
   var DESK = ['desk-bookings','desk-activity','desk-profile','desk-notes','desk-days'];
-  var SIDE = ['cancel-panel'];
+  var SIDE = ['choose-panel','dates-panel','times-panel','confirm-panel','cancel-panel','desk-login','desk-top'];
   var ASIDE = document.querySelector('aside.panel.hours');
   if (ASIDE && !ASIDE.id) ASIDE.id = 'hours-panel';
-  var OPEN_AT_START = {'desk-bookings': true};
+  var OPEN_AT_START = {'desk-bookings': true, 'choose-panel': true, 'dates-panel': true, 'times-panel': true, 'confirm-panel': true, 'desk-login': true, 'desk-top': true};
   var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   var all = {};
   function setOpen(id, open){
@@ -1408,9 +1406,10 @@ textarea.input{resize:vertical;font:inherit}
     panel.appendChild(body);
     var btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'ctoggle'; btn.setAttribute('aria-controls', body.id);
-    var label = document.createElement('span'); label.textContent = h2.textContent;
+    var label = document.createElement('span'); label.className = 'clabel';
+    while (h2.firstChild) label.appendChild(h2.firstChild);
     var hint = document.createElement('span'); hint.className = 'chint';
-    h2.textContent = ''; btn.append(label, hint); btn.insertAdjacentHTML('beforeend', CHEV); h2.appendChild(btn);
+    btn.append(label, hint); btn.insertAdjacentHTML('beforeend', CHEV); h2.appendChild(btn);
     all[id] = {panel: panel, body: body, btn: btn, hint: hint, group: group};
     btn.addEventListener('click', function(){
       var open = body.hidden;
