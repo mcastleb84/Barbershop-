@@ -198,6 +198,7 @@ textarea.input{resize:vertical;font:inherit}
 .daytab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
 .ctoggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
 .ctoggle:focus-visible{outline:2px solid currentColor;outline-offset:4px;border-radius:4px}
+.clabel{display:flex;align-items:baseline;gap:10px;min-width:0}
 .chev{flex:none;width:22px;height:22px;transition:transform .2s ease}
 .ctoggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .chint{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted);margin-left:auto;margin-right:6px;white-space:nowrap}
@@ -1384,10 +1385,10 @@ textarea.input{resize:vertical;font:inherit}
 (function(){
   // Barber desk: one section open at a time. Customer side: each opens on its own.
   var DESK = ['desk-bookings','desk-activity','desk-profile','desk-notes','desk-days'];
-  var SIDE = ['cancel-panel'];
+  var SIDE = ['choose-panel','dates-panel','times-panel','confirm-panel','cancel-panel','desk-login','desk-top'];
   var ASIDE = document.querySelector('aside.panel.hours');
   if (ASIDE && !ASIDE.id) ASIDE.id = 'hours-panel';
-  var OPEN_AT_START = {'desk-bookings': true};
+  var OPEN_AT_START = {'desk-bookings': true, 'choose-panel': true, 'dates-panel': true, 'times-panel': true, 'confirm-panel': true, 'desk-login': true, 'desk-top': true};
   var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   var all = {};
   function setOpen(id, open){
@@ -1405,9 +1406,10 @@ textarea.input{resize:vertical;font:inherit}
     panel.appendChild(body);
     var btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'ctoggle'; btn.setAttribute('aria-controls', body.id);
-    var label = document.createElement('span'); label.textContent = h2.textContent;
+    var label = document.createElement('span'); label.className = 'clabel';
+    while (h2.firstChild) label.appendChild(h2.firstChild);
     var hint = document.createElement('span'); hint.className = 'chint';
-    h2.textContent = ''; btn.append(label, hint); btn.insertAdjacentHTML('beforeend', CHEV); h2.appendChild(btn);
+    btn.append(label, hint); btn.insertAdjacentHTML('beforeend', CHEV); h2.appendChild(btn);
     all[id] = {panel: panel, body: body, btn: btn, hint: hint, group: group};
     btn.addEventListener('click', function(){
       var open = body.hidden;
