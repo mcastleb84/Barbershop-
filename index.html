@@ -5,7 +5,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#5e1527">
 <title>Barbershop</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<script>
+/* ---------- color schemes (saved on this device only) ---------- */
+window.BS_THEMES = {
+  classic:  {name:'Classic',  bg:null},
+  midnight: {name:'Midnight', bg:'#0f1b33', accent:'#d9a441', blue:'#3f6fb5'},
+  forest:   {name:'Forest',   bg:'#173a2b', accent:'#e0a43a', blue:'#2f6b52'},
+  charcoal: {name:'Charcoal', bg:'#1f1f22', accent:'#e5484d', blue:'#4a6fa5'},
+  ocean:    {name:'Ocean',    bg:'#0d3b4a', accent:'#f2765a', blue:'#1d7a8c'},
+  royal:    {name:'Royal',    bg:'#2b1a4a', accent:'#e8b04a', blue:'#5b7fd6'},
+  light:    {name:'Light',    bg:'#f4efe8', accent:'#b3202a', blue:'#1c3d7a'}
+};
+window.bsApplyTheme = function(t){
+  var r = document.documentElement, keys = ['--bg','--on-bg','--on-bg-muted','--tab-bg','--banner','--accent','--accent-ink','--blue','--surface','--ink','--muted','--line','--wash','color-scheme'];
+  keys.forEach(function(k){ r.style.removeProperty(k); });
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (!t || !t.bg){ if (meta) meta.setAttribute('content', '#5e1527'); return; }
+  function lum(hex){ var n = parseInt(hex.slice(1), 16), c = [n>>16&255, n>>8&255, n&255].map(function(v){ v/=255; return v<=.03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
+  var lightBg = lum(t.bg) > .45;
+  r.style.setProperty('--bg', t.bg);
+  r.style.setProperty('--on-bg', lightBg ? '#1f1712' : '#f6f2ee');
+  r.style.setProperty('--on-bg-muted', lightBg ? '#5e5048' : 'rgba(255,255,255,.72)');
+  r.style.setProperty('--tab-bg', lightBg ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.14)');
+  r.style.setProperty('--banner', lightBg ? 'rgba(0,0,0,.04)' : 'rgba(0,0,0,.28)');
+  if (t.accent){ r.style.setProperty('--accent', t.accent); r.style.setProperty('--accent-ink', lum(t.accent) > .4 ? '#141414' : '#ffffff'); }
+  if (t.blue) r.style.setProperty('--blue', t.blue);
+  if (lightBg){ [['--surface','#ffffff'],['--ink','#0f1a2e'],['--muted','#5a6579'],['--line','#d6dce7'],['--wash','#efe9e1'],['color-scheme','light']].forEach(function(p){ r.style.setProperty(p[0], p[1]); }); }
+  if (meta) meta.setAttribute('content', t.bg);
+};
+window.bsThemeOf = function(v){ return !v ? null : (v.id === 'custom' ? v : BS_THEMES[v.id] || null); };
+(function(){ try { localStorage.removeItem('bs.colors'); var v = JSON.parse(localStorage.getItem('bs.shoptheme') || 'null'); if (v) bsApplyTheme(bsThemeOf(v)); } catch(e){} })();
+</script>
+
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Barbershop">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* Layout: shop-sign banner with a barber-pole stripe, booking steps in the main column, weekly shop hours as a side card. */
@@ -191,7 +229,8 @@ textarea.input{resize:vertical;font:inherit}
 .contact .paypill,.paypill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:#fff;color:#111;text-decoration:none;font-weight:700;font-size:14px;border:0}
 .paydot{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;color:#fff;font-size:11px;font-weight:800;line-height:1;flex:none}
 .payblock{margin-top:12px;padding:12px;border:1.5px solid var(--line);border-radius:10px}
-.payopts{display:flex;flex-direction:column;gap:10px;max-width:360px}
+.payopts{display:flex;flex-direction:column;gap:10px}
+#pay-side .payopt{align-self:stretch;text-align:left;justify-content:flex-start}
 .payopt{display:flex;align-items:center;gap:12px;text-decoration:none;padding:14px 16px;font-size:16px;align-self:stretch;background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
 .payopt:hover{border-color:var(--ink)}
 .payopt .paydot{width:28px;height:28px;border-radius:8px;font-size:15px}
@@ -210,6 +249,18 @@ textarea.input{resize:vertical;font:inherit}
 .chint{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted);margin-left:auto;margin-right:6px;white-space:nowrap}
 .panel.is-collapsed .step-h{margin-bottom:0}
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
+.install-steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.45}
+.kbd{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1.5px solid var(--line);border-radius:6px;vertical-align:-5px}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.swatch{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:8px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-weight:600;font-size:13px;cursor:pointer;text-align:center}
+.swatch[aria-checked="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+.swatch .sw{height:40px;border-radius:7px;display:flex;overflow:hidden;border:1px solid rgba(0,0,0,.12)}
+.swatch .sw i{flex:1}
+.colorpick{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.colorpick input{width:44px;height:36px;padding:0;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
+.ownsec{border-top:1.5px solid var(--line);padding-top:14px;display:flex;flex-direction:column}
+.ownh{margin:0 0 8px;font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:.04em;text-transform:uppercase}
+#own-side .shop-edit{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;background:none;border:0;box-shadow:none;max-width:none;text-align:left;color:var(--ink)}
 .notice{background:var(--wash);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:14px;margin:0}
 .whorow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .whorow p{margin:0;overflow-wrap:anywhere}
@@ -221,6 +272,45 @@ textarea.input{resize:vertical;font:inherit}
 <body>
 
 <div class="toast" id="toast" role="status" hidden></div>
+<div class="scrim" id="pay-scrim" hidden></div>
+<aside class="side" id="pay-side" role="dialog" aria-modal="true" aria-labelledby="pay-title">
+  <div class="side-head">
+    <h2 id="pay-title">Pay for your cut</h2>
+    <button class="side-close" id="pay-close" type="button" aria-label="Close payment menu">&times;</button>
+  </div>
+  <p class="hint" style="margin:0">Done with your cut? Pay by credit card, Cash App or Venmo. Each button takes you to that site to pay. Paying online is optional; you can also pay at the shop.</p>
+  <div class="field" id="pay-who-wrap" hidden>
+    <label for="pay-who">Who are you paying?</label>
+    <select class="sel" id="pay-who"></select>
+  </div>
+  <div class="payopts" id="pay-opts"></div>
+  <p class="hint" id="pay-empty" style="margin:0" hidden></p>
+</aside>
+<div class="scrim" id="own-scrim" hidden></div>
+<aside class="side" id="own-side" role="dialog" aria-modal="true" aria-labelledby="own-title">
+  <div class="side-head">
+    <h2 id="own-title">Owner settings</h2>
+    <button class="side-close" id="own-close" type="button" aria-label="Close owner settings">&times;</button>
+  </div>
+  <p class="hint" style="margin:0">Make the app your own. Only you see this menu, and changes show for all your customers.</p>
+  <section class="ownsec">
+    <h3 class="ownh">Shop details</h3>
+    <p class="hint" style="margin:0 0 8px">Your shop name is also the app's name on people's home screens.</p>
+    <div id="own-shop"></div>
+  </section>
+  <section class="ownsec">
+    <h3 class="ownh">Color scheme</h3>
+    <div class="swatches" id="own-swatches" role="radiogroup" aria-label="Color scheme"></div>
+    <p style="margin:12px 0 8px;font-weight:700">Or make your own</p>
+    <div class="addrow" style="align-items:center">
+      <label class="colorpick">Background <input type="color" id="own-bg" value="#5e1527"></label>
+      <label class="colorpick">Buttons <input type="color" id="own-accent" value="#c4222b"></label>
+    </div>
+    <div class="addrow" style="margin-top:12px"><button class="btn small" type="button" id="own-save-colors">Save colors</button><button class="btn ghost small" type="button" id="own-undo-colors">Undo</button></div>
+    <p class="msg" id="own-colors-msg" role="status"></p>
+    <p class="okmsg" id="own-colors-ok" role="status"></p>
+  </section>
+</aside>
 <div class="scrim" id="scrim" hidden></div>
 <aside class="side" id="side" role="dialog" aria-modal="true" aria-labelledby="side-title">
   <div class="side-head">
@@ -271,11 +361,34 @@ textarea.input{resize:vertical;font:inherit}
     <button class="tab" role="tab" id="tab-book" aria-selected="true">Book a cut</button>
     <button class="tab" role="tab" id="tab-barber" aria-selected="false">Barber desk<span class="badge" id="badge" hidden></span></button>
   </nav>
-  <button class="side-open" id="pay-quick" type="button"><span class="paydot" style="background:#17784a" aria-hidden="true">$</span>Pay</button>
+  <button class="side-open" id="pay-quick" type="button" aria-controls="pay-side" aria-expanded="false"><span class="paydot" style="background:#17784a" aria-hidden="true">$</span>Pay</button>
+  <button class="side-open" id="app-install" type="button" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Get the app</button>
+  <button class="side-open" id="owner-open" type="button" hidden aria-controls="own-side" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Owner settings</button>
   <button class="side-open" id="tour-btn" type="button">How it works</button>
   <button class="side-open" id="side-open" type="button" aria-haspopup="dialog" aria-controls="side" aria-expanded="false"><span class="dot2" aria-hidden="true"></span><span id="side-open-text">Barber login</span></button>
 </div>
 
+<div class="wrap" id="install-help" hidden style="padding-block:14px 0">
+  <div class="panel" style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2 class="step-h" style="margin:0">Get the app</h2><button class="btn ghost small" type="button" id="install-close">Close</button></div>
+    <div id="install-ios">
+      <p class="hint" style="margin:0 0 8px">Add the Barbershop app to your iPhone home screen. It takes 10 seconds and it's free.</p>
+      <ol class="install-steps">
+        <li>Tap the <b>Share</b> button <span class="kbd" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span> in Safari. On newer iPhones, tap <b>⋯</b> next to the address bar first.</li>
+        <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+        <li>Tap <b>Add</b>. The barber pole icon shows up on your home screen.</li>
+      </ol>
+      <p class="hint" style="margin:8px 0 0">Using Chrome on iPhone? Tap the Share button at the top right, then Add to Home Screen.</p>
+    </div>
+    <div id="install-other" hidden>
+      <p class="hint" style="margin:0 0 8px">Add the Barbershop app to your phone or computer.</p>
+      <ol class="install-steps">
+        <li><b>Android (Chrome):</b> tap <b>⋮</b> at the top right, then <b>Install app</b> or <b>Add to Home screen</b>.</li>
+        <li><b>Computer (Chrome or Edge):</b> click the install icon at the right end of the address bar.</li>
+      </ol>
+    </div>
+  </div>
+</div>
 <div class="wrap grid">
   <main class="main">
     <p class="loadnote" id="loadnote" role="status"></p>
@@ -317,16 +430,6 @@ textarea.input{resize:vertical;font:inherit}
           <p class="msg" id="book-msg" role="status"></p>
         </div>
         <p class="policy">Need to cancel? Please notify us at least 24 hours before your appointment.</p>
-      </div>
-      <div class="panel" id="pay-panel">
-        <h2 class="step-h">Pay for your cut</h2>
-        <p class="hint" style="margin-bottom:12px">Done with your cut? Pay by credit card, Cash App or Venmo. Each button takes you to that site to pay. Paying online is optional; you can also pay at the shop.</p>
-        <div class="field" id="pay-who-wrap" style="max-width:300px;margin-bottom:12px" hidden>
-          <label for="pay-who">Who are you paying?</label>
-          <select class="sel" id="pay-who"></select>
-        </div>
-        <div class="payopts" id="pay-opts"></div>
-        <p class="hint" id="pay-empty" style="margin:0" hidden></p>
       </div>
       <div class="panel" id="cancel-panel">
         <h2 class="step-h">Cancel an appointment</h2>
@@ -571,12 +674,13 @@ textarea.input{resize:vertical;font:inherit}
     $('pay-empty').hidden = true;
     $('pay-empty').textContent = isAdmin ? 'No payment options yet. Owner: add your Cash App, Venmo and card link to config.js.' : 'Online payment is not set up yet. You can pay at the shop.';
   }
-  function goPay(id){
-    if (id) payWho = id; renderPayPanel();
-    if (location.hash === '#barber' || /^#profile-/.test(location.hash)) location.hash = 'book';
-    if (window.openSection) window.openSection('pay-panel');
-    setTimeout(function(){ $('pay-panel').scrollIntoView({block:'start', behavior:'smooth'}); }, 60);
+  var payReturn = null;
+  function setPay(open){
+    var el = $('pay-side');
+    if (open){ payReturn = document.activeElement; renderPayPanel(); $('pay-scrim').hidden = false; el.classList.add('open'); $('pay-quick').setAttribute('aria-expanded', 'true'); setTimeout(function(){ $('pay-close').focus(); }, 60); }
+    else if (el.classList.contains('open')){ $('pay-scrim').hidden = true; el.classList.remove('open'); $('pay-quick').setAttribute('aria-expanded', 'false'); if (payReturn && payReturn.focus) payReturn.focus(); }
   }
+  function goPay(id){ if (id) payWho = id; setPay(true); }
   async function loadPay(){
     if (!sb){ var P0 = CFG.PAYMENTS || {}; PAY = {cashapp: cleanTag(P0.CASHAPP, '$'), venmo: cleanTag(P0.VENMO, '@'), card_link: okLink(cleanLink(P0.CARD_LINK)) ? cleanLink(P0.CARD_LINK) : ''}; renderPayPanel(); return; }
     async function pick(q1, q2){ var r = await q1(); if (r.error) r = await q2(); return r; }
@@ -593,17 +697,76 @@ textarea.input{resize:vertical;font:inherit}
     if (hasPay(fromCfg)) PAY = {cashapp: fromCfg.cashapp || PAY.cashapp, venmo: fromCfg.venmo || PAY.venmo, card_link: fromCfg.card_link || PAY.card_link};
     renderContact(); if (confirmed) updateForm(); renderProfile(); if (!profDirty) fillProfileFields(); renderPayPanel();
   }
+  /* ---------- owner settings drawer ---------- */
+  var ownReturn = null, themeSaved = null, themeDraft = null;
+  try { themeSaved = JSON.parse(localStorage.getItem('bs.shoptheme') || 'null'); } catch(e){ themeSaved = null; }
+  function setOwner(open, focusId){
+    var el = $('own-side'); if (!el) return;
+    if (open){
+      if (!isAdmin) return;
+      if (!$('own-shop').contains($('shop-edit'))) $('own-shop').appendChild($('shop-edit'));
+      $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone;
+      $('shop-edit').hidden = false;
+      ownReturn = document.activeElement; themeDraft = themeSaved; renderOwnSwatches();
+      $('own-colors-msg').textContent = ''; $('own-colors-ok').textContent = '';
+      $('own-scrim').hidden = false; el.classList.add('open'); $('owner-open').setAttribute('aria-expanded', 'true');
+      setTimeout(function(){ var f = $(focusId || 'own-close'); if (f) f.focus(); }, 60);
+    } else {
+      if (!el.classList.contains('open')) return;
+      $('own-scrim').hidden = true; el.classList.remove('open'); $('owner-open').setAttribute('aria-expanded', 'false');
+      bsApplyTheme(bsThemeOf(themeSaved));
+      if (ownReturn && ownReturn.focus) ownReturn.focus();
+    }
+  }
+  function openOwner(focusId){ setOwner(true, focusId); }
+  function renderOwnSwatches(){
+    var box = $('own-swatches'); box.textContent = '';
+    var cur = themeDraft ? themeDraft.id : 'classic';
+    Object.keys(BS_THEMES).forEach(function(id){
+      var t = BS_THEMES[id], bg = t.bg || '#5e1527', ac = t.accent || '#c4222b', bl = t.blue || '#1c3d7a';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'swatch'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(cur === id));
+      b.innerHTML = '<span class="sw"><i style="background:' + bg + ';flex:2"></i><i style="background:' + ac + '"></i><i style="background:' + bl + '"></i></span>';
+      b.append(t.name);
+      b.addEventListener('click', function(){ themeDraft = id === 'classic' ? null : {id:id}; bsApplyTheme(bsThemeOf(themeDraft)); $('own-colors-ok').textContent = 'Preview: ' + t.name + '. Tap Save colors to keep it.'; renderOwnSwatches(); });
+      box.appendChild(b);
+    });
+    if (themeDraft && themeDraft.id === 'custom'){ $('own-bg').value = themeDraft.bg; $('own-accent').value = themeDraft.accent; }
+  }
+  function previewCustom(){ themeDraft = {id:'custom', bg:$('own-bg').value, accent:$('own-accent').value, blue:$('own-accent').value}; bsApplyTheme(themeDraft); $('own-colors-ok').textContent = 'Preview: your colors. Tap Save colors to keep them.'; renderOwnSwatches(); }
+  async function saveTheme(){
+    var msg = $('own-colors-msg'); msg.textContent = ''; $('own-colors-ok').textContent = '';
+    if (!sb || !isAdmin){ msg.textContent = 'Sign in as the owner to change colors.'; return; }
+    $('own-save-colors').disabled = true;
+    try {
+      var r = await sb.from('shop_settings').update({theme: themeDraft ? JSON.stringify(themeDraft) : ''}).eq('id', 1).select('id');
+      if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
+      themeSaved = themeDraft; try { if (themeSaved) localStorage.setItem('bs.shoptheme', JSON.stringify(themeSaved)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
+      $('own-colors-ok').textContent = 'Saved. All your customers now see these colors.';
+    } catch(e){ msg.textContent = /column/i.test((e && e.message) || '') ? 'To save colors, run shop-setup.sql in Supabase first.' : 'Could not save. Sign in again and retry.'; }
+    $('own-save-colors').disabled = false;
+  }
+  async function loadTheme(){
+    if (!sb) return;
+    try {
+      var r = await sb.from('shop_settings').select('theme').eq('id', 1).maybeSingle();
+      if (r.error || !r.data) return;
+      var v = null; try { v = r.data.theme ? JSON.parse(r.data.theme) : null; } catch(e){ v = null; }
+      themeSaved = v;
+      if (!$('own-side').classList.contains('open')) bsApplyTheme(bsThemeOf(v));
+      try { if (v) localStorage.setItem('bs.shoptheme', JSON.stringify(v)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
+    } catch(e){}
+  }
   function openShopEdit(focusId){
     $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone;
     $('se-cashapp').value = PAY.cashapp ? '$' + PAY.cashapp : ''; $('se-venmo').value = PAY.venmo ? '@' + PAY.venmo : ''; $('se-card').value = PAY.card_link || '';
     $('se-msg').textContent = '';
     $('shop-edit').hidden = false;
-    $('shop-name').scrollIntoView({block:'nearest'});
-    $(focusId || 'se-name').focus();
+    openOwner(focusId || 'se-name');
   }
   function renderContact(){
     var nm = $('shop-name'); nm.textContent = '';
     document.title = SHOP.name;
+    var amt = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (amt) amt.setAttribute('content', SHOP.name);
     var c = $('contact'); c.textContent = '';
     if (isAdmin){
       nm.append(h('button',{class:'editable',type:'button','aria-label':'Edit business name',onclick:function(){ openShopEdit('se-name'); }}, SHOP.name));
@@ -611,7 +774,7 @@ textarea.input{resize:vertical;font:inherit}
         h('button',{class:'editable',type:'button','aria-label':'Edit address',onclick:function(){ openShopEdit('se-address'); }}, SHOP.address),
         h('span',{'aria-hidden':'true'}, '·'),
         h('button',{class:'editable',type:'button','aria-label':'Edit phone number',onclick:function(){ openShopEdit('se-phone'); }}, SHOP.phone));
-      $('edit-hint').textContent = 'Owner: tap the name, address or phone number to change them, and to change it.';
+      $('edit-hint').textContent = 'Owner: tap Owner settings to change the shop name, details and colors.';
     } else {
       nm.textContent = SHOP.name;
       c.append(
@@ -624,7 +787,7 @@ textarea.input{resize:vertical;font:inherit}
   }
   async function saveShop(e){
     e.preventDefault();
-    var msg = $('se-msg'); msg.textContent = '';
+    var msg = $('se-msg'); msg.textContent = ''; msg.className = 'msg';
     var v = {name:$('se-name').value.trim(), address:$('se-address').value.trim(), phone:$('se-phone').value.trim()};
     if (!v.name || !v.address || !v.phone){ msg.textContent = 'Fill in all three fields.'; return; }
     if (!sb || !isAdmin){ msg.textContent = 'Sign in as the owner to change this.'; return; }
@@ -642,7 +805,7 @@ textarea.input{resize:vertical;font:inherit}
         if (r2.error){ msg.textContent = /column/i.test(r2.error.message || '') ? 'Shop info saved. To save payment options, run payment-setup.sql in Supabase first.' : 'Shop info saved, but the payment options did not. Try again.'; renderContact(); $('se-save').disabled = false; return; }
         PAY = pay;
       }
-      $('shop-edit').hidden = true; renderContact(); renderPayPanel();
+      renderContact(); renderPayPanel(); msg.className = 'okmsg'; msg.textContent = 'Saved. Customers will see the new details.';
     } catch(err){ msg.textContent = 'Could not save. Sign in again and retry.'; }
     $('se-save').disabled = false;
   }
@@ -1193,6 +1356,8 @@ textarea.input{resize:vertical;font:inherit}
     $('desk-gate').hidden = !signedIn || !!staff;
     ['desk-top','desk-activity','desk-profile','desk-notes','desk-days','desk-bookings'].forEach(function(id){ $(id).hidden = !staff; });
     $('desk-add').hidden = !isAdmin;
+    $('owner-open').hidden = !isAdmin;
+    if (!isAdmin) setOwner(false);
   }
   function renderDeskTop(){
     var sel = $('desk-barber'); sel.textContent = '';
@@ -1266,15 +1431,26 @@ textarea.input{resize:vertical;font:inherit}
   $('add-note').addEventListener('click', addNote);
   $('save-prof').addEventListener('click', saveProfile);
   $('shop-edit').addEventListener('submit', saveShop);
-  $('se-cancel').addEventListener('click', function(){ $('shop-edit').hidden = true; });
+  $('se-cancel').addEventListener('click', function(){ setOwner(false); });
   $('prof-spec').addEventListener('input', function(){ profDirty = true; });
   $('prof-bio').addEventListener('input', function(){ profDirty = true; });
   $('prof-cashapp').addEventListener('input', function(){ profDirty = true; });
   $('prof-card').addEventListener('input', function(){ profDirty = true; });
   $('prof-venmo').addEventListener('input', function(){ profDirty = true; });
   $('find-btn').addEventListener('click', findBooking);
+  $('owner-open').addEventListener('click', function(){ openShopEdit(); });
+  $('own-close').addEventListener('click', function(){ setOwner(false); });
+  $('own-scrim').addEventListener('click', function(){ setOwner(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setOwner(false); });
+  $('own-bg').addEventListener('input', previewCustom);
+  $('own-accent').addEventListener('input', previewCustom);
+  $('own-save-colors').addEventListener('click', saveTheme);
+  $('own-undo-colors').addEventListener('click', function(){ themeDraft = themeSaved; bsApplyTheme(bsThemeOf(themeSaved)); renderOwnSwatches(); $('own-colors-ok').textContent = 'Back to your saved colors.'; });
   $('pay-who').addEventListener('change', function(e){ payWho = e.target.value; renderPayPanel(); });
   $('pay-quick').addEventListener('click', function(){ goPay(); });
+  $('pay-close').addEventListener('click', function(){ setPay(false); });
+  $('pay-scrim').addEventListener('click', function(){ setPay(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setPay(false); });
   window.goPay = goPay;
   $('appt-filter').addEventListener('change', function(e){ apptFilter = e.target.value; renderDeskBookings(); });
   $('appt-new').addEventListener('click', function(){ $('ap-ok').textContent = ''; $('ap-msg').textContent = ''; $('appt-form').hidden = false; fillApptForm(false); $('ap-name').focus(); });
@@ -1433,7 +1609,7 @@ textarea.input{resize:vertical;font:inherit}
     } catch(e){ session = null; }
     await loadStaff();
     await refresh(true);
-    loadPay();
+    loadPay(); loadTheme();
     applyTab();
     sb.auth.onAuthStateChange(function(ev, s2){
       setTimeout(async function(){
@@ -1459,10 +1635,10 @@ textarea.input{resize:vertical;font:inherit}
 (function(){
   // Barber desk: one section open at a time. Customer side: each opens on its own.
   var DESK = ['desk-bookings','desk-activity','desk-profile','desk-notes','desk-days'];
-  var SIDE = ['choose-panel','dates-panel','times-panel','confirm-panel','pay-panel','cancel-panel','desk-login','desk-top'];
+  var SIDE = ['choose-panel','dates-panel','times-panel','confirm-panel','cancel-panel','desk-login','desk-top'];
   var ASIDE = document.querySelector('aside.panel.hours');
   if (ASIDE && !ASIDE.id) ASIDE.id = 'hours-panel';
-  var OPEN_AT_START = {'desk-bookings': true, 'choose-panel': true, 'dates-panel': true, 'times-panel': true, 'confirm-panel': true, 'desk-login': true, 'desk-top': true};
+  var OPEN_AT_START = {}; // every section starts hidden
   var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
   var all = {};
   function setOpen(id, open){
@@ -1498,6 +1674,10 @@ textarea.input{resize:vertical;font:inherit}
   if (ASIDE) make(ASIDE.id, 'side');
   function payLink(){ if (location.hash === '#pay' && window.goPay) setTimeout(function(){ window.goPay(); }, 300); }
   window.addEventListener('hashchange', payLink); payLink();
+  document.addEventListener('click', function(e){
+    var t = e.target, next = t.closest('#choose-panel a.barber') ? 'dates-panel' : t.closest('#dates-panel button.date') ? 'times-panel' : t.closest('#times-panel button.slot') ? 'confirm-panel' : null;
+    if (next) setTimeout(function(){ setOpen(next, true); }, 0);
+  }, true);
   window.openSection = function(id){
     if (!all[id]) return;
     if (all[id].group === 'desk') DESK.forEach(function(o){ if (o !== id) setOpen(o, false); });
@@ -1624,13 +1804,14 @@ textarea.input{resize:vertical;font:inherit}
   var CUSTOMER = [
     {title:'Welcome', text:'This quick tour shows you how to book a haircut. It takes about a minute.', before:book},
     {target:'#contact', title:'The shop', text:'Tap the address for directions or the phone number to call.'},
-    {target:'#choose-panel', title:'1. Choose your barber', text:'Tap a barber to pick them. Tap their name to see their profile, specialties and how to pay them.', before:book},
-    {target:'#dates-panel', title:'2. Pick a day', text:'Only days your barber is working show up.'},
-    {target:'#times-panel', title:'3. Pick a time', text:'Open times show in 30 minute slots. Taken times are greyed out.'},
-    {target:'#confirm-panel', title:'4. Confirm', text:'Add your name, and your phone if you want a call, then book. Nothing to pay yet.'},
-    {target:'#pay-quick', title:'Pay after your cut', text:'When your cut is done, tap Pay, then pick credit card, Cash App or Venmo. Each one opens that site. It is optional; you can also pay at the shop.'},
+    {target:'#choose-panel', title:'1. Choose your barber', text:'Every section starts folded. Tap a title to open it, then tap a barber to pick them. The next step opens by itself.', before:function(){ book(); window.openSection && window.openSection('choose-panel'); }},
+    {target:'#dates-panel', title:'2. Pick a day', text:'Only days your barber is working show up.', before:function(){ window.openSection && window.openSection('dates-panel'); }},
+    {target:'#times-panel', title:'3. Pick a time', text:'Open times show in 30 minute slots. Taken times are greyed out.', before:function(){ window.openSection && window.openSection('times-panel'); }},
+    {target:'#confirm-panel', before:function(){ window.openSection && window.openSection('confirm-panel'); }, title:'4. Confirm', text:'Add your name, and your phone if you want a call, then book. Nothing to pay yet.'},
+    {target:'#pay-quick', title:'Pay after your cut', text:'When your cut is done, tap Pay. A menu slides open with credit card, Cash App and Venmo. It is optional; you can also pay at the shop.'},
     {target:'#cancel-panel', title:'Need to cancel?', text:'Tap here, then enter the name you booked under to find and cancel your appointment.'},
     {target:'#hours-panel', title:'Shop hours', text:'Tap to see the hours for every day of the week.'},
+    {target:'#app-install', title:'Get the app', text:'Tap here to put the Barbershop app on your home screen, so booking is one tap away.'},
     {target:'#tab-barber', title:'For barbers', text:'Barbers use the Barber desk to see appointments and set their hours. Tap How it works there for the barber tour.'},
     {title:'You are all set', text:'Replay this tour anytime with the How it works button.', before:book}
   ];
@@ -1644,6 +1825,7 @@ textarea.input{resize:vertical;font:inherit}
     {target:'#desk-profile', title:'Your profile', text:'Your specialties and a short bio. Customers see these when they tap your name.', before:open('desk-profile')},
     {target:'#desk-notes', title:'Notes for customers', text:'Going on vacation or leaving early? Post a note and customers will see it when booking.', before:open('desk-notes')},
     {target:'#desk-days', title:'Your hours', text:'Turn days on or off and set your hours, then tap Save day. Use the tabs to see Today, Tomorrow or the next 2 weeks.', before:open('desk-days')},
+    {target:'#owner-open', title:'Owner settings', text:'Owners only: change the shop name, address, phone and the app colors. Changes show for every customer.'},
     {target:'#side-open', title:'Your account', text:'Log out here when you are done.'},
     {title:'You are all set', text:'Tap a section title to open it. Opening one folds the others away. Replay this tour anytime with How it works.', before:open('desk-bookings')}
   ];
@@ -1661,5 +1843,29 @@ textarea.input{resize:vertical;font:inherit}
   window.addEventListener('hashchange', function(){ if (location.hash === '#barber') maybeAuto(); });
 })();
 </script>
+
+<script>
+/* ---------- install as an app ---------- */
+(function(){
+  var btn = document.getElementById('app-install'), help = document.getElementById('install-help'), deferred = null;
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!standalone) btn.hidden = false;
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred = e; btn.hidden = false; });
+  window.addEventListener('appinstalled', function(){ btn.hidden = true; help.hidden = true; });
+  btn.addEventListener('click', async function(){
+    if (deferred){ deferred.prompt(); try { await deferred.userChoice; } catch(e){} deferred = null; return; }
+    document.getElementById('install-ios').hidden = !ios;
+    document.getElementById('install-other').hidden = ios;
+    help.hidden = !help.hidden;
+    if (!help.hidden) help.scrollIntoView({block:'nearest', behavior:'smooth'});
+  });
+  document.getElementById('install-close').addEventListener('click', function(){ help.hidden = true; });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+})();
+</script>
+
 </body>
 </html>
