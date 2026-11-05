@@ -319,7 +319,7 @@ textarea.input{resize:vertical;font:inherit}
       </div>
       <div class="panel" id="pay-panel">
         <h2 class="step-h">Pay for your cut</h2>
-        <p class="hint" style="margin-bottom:12px">Done with your cut? Pay by credit card, Cash App or Venmo. Each one opens its own payment page so you can enter the amount. Paying online is optional; you can also pay at the shop.</p>
+        <p class="hint" style="margin-bottom:12px">Done with your cut? Tap Cash App or Venmo to go to their site and pay. Paying online is optional; you can also pay at the shop.</p>
         <div class="field" id="pay-who-wrap" style="max-width:300px;margin-bottom:12px" hidden>
           <label for="pay-who">Who are you paying?</label>
           <select class="sel" id="pay-who"></select>
@@ -562,7 +562,13 @@ textarea.input{resize:vertical;font:inherit}
     opts.textContent = '';
     var cur = ch.filter(function(c){ return c.id === payWho; })[0];
     if (cur) payButtons('btn payopt', cur.pay).forEach(function(a){ opts.append(a); });
-    $('pay-empty').hidden = !!cur;
+    else {
+      // No accounts set up: the buttons simply open the Cash App and Venmo websites.
+      opts.append(
+        h('a',{class:'btn payopt', href:'https://cash.app', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#00D64F', 'aria-hidden':'true'}, '$'), 'Pay with Cash App'),
+        h('a',{class:'btn payopt', href:'https://venmo.com', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#008CFF', 'aria-hidden':'true'}, 'V'), 'Pay with Venmo'));
+    }
+    $('pay-empty').hidden = true;
     $('pay-empty').textContent = isAdmin ? 'No payment options yet. Owner: add your Cash App, Venmo and card link to config.js.' : 'Online payment is not set up yet. You can pay at the shop.';
   }
   function goPay(id){
