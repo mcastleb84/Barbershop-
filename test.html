@@ -255,9 +255,9 @@ textarea.input{resize:vertical;font:inherit}
       <div class="field"><label for="se-name">Business name</label><input class="input" id="se-name" maxlength="40" required></div>
       <div class="field"><label for="se-address">Address</label><input class="input" id="se-address" maxlength="120" required></div>
       <div class="field"><label for="se-phone">Phone number</label><input class="input" id="se-phone" maxlength="30" inputmode="tel" required></div>
-      <div class="field"><label for="se-card">Card payment link (optional)</label><input class="input" id="se-card" maxlength="300" inputmode="url" placeholder="https://square.link/u/..." autocomplete="off" autocapitalize="off"></div>
-      <div class="field"><label for="se-cashapp">Cash App $Cashtag (optional)</label><input class="input" id="se-cashapp" maxlength="21" placeholder="$FreshCuts" autocomplete="off" autocapitalize="off"></div>
-      <div class="field"><label for="se-venmo">Venmo username (optional)</label><input class="input" id="se-venmo" maxlength="31" placeholder="@FreshCuts" autocomplete="off" autocapitalize="off"></div>
+      <div class="field" hidden><label for="se-card">Card payment link (optional)</label><input class="input" id="se-card" maxlength="300" inputmode="url" placeholder="https://square.link/u/..." autocomplete="off" autocapitalize="off"></div>
+      <div class="field" hidden><label for="se-cashapp">Cash App $Cashtag (optional)</label><input class="input" id="se-cashapp" maxlength="21" placeholder="$FreshCuts" autocomplete="off" autocapitalize="off"></div>
+      <div class="field" hidden><label for="se-venmo">Venmo username (optional)</label><input class="input" id="se-venmo" maxlength="31" placeholder="@FreshCuts" autocomplete="off" autocapitalize="off"></div>
       <p class="msg" id="se-msg" role="status"></p>
       <div class="row"><button class="btn small" type="submit" id="se-save">Save</button><button class="btn ghost small" type="button" id="se-cancel">Cancel</button></div>
     </form>
@@ -415,19 +415,18 @@ textarea.input{resize:vertical;font:inherit}
             <label for="prof-bio">About</label>
             <textarea class="input" id="prof-bio" rows="4" maxlength="300" placeholder="A few sentences about your style and experience"></textarea>
           </div>
-          <div class="field" style="max-width:480px">
+          <div class="field" style="max-width:480px" hidden>
             <label for="prof-card">Your card payment link (optional)</label>
             <input class="input" id="prof-card" type="text" maxlength="300" inputmode="url" placeholder="https://square.link/u/..." autocomplete="off" autocapitalize="off">
           </div>
-          <div class="field" style="max-width:480px">
+          <div class="field" style="max-width:480px" hidden>
             <label for="prof-cashapp">Your Cash App $Cashtag (optional)</label>
             <input class="input" id="prof-cashapp" type="text" maxlength="21" placeholder="$MarcusCuts" autocomplete="off" autocapitalize="off">
           </div>
-          <div class="field" style="max-width:480px">
+          <div class="field" style="max-width:480px" hidden>
             <label for="prof-venmo">Your Venmo username (optional)</label>
             <input class="input" id="prof-venmo" type="text" maxlength="31" placeholder="@MarcusCuts" autocomplete="off" autocapitalize="off">
           </div>
-          <p class="hint" style="margin:0">Customers can pay you this way under "Pay for your cut." Leave them blank to use the shop's payment options.</p>
           <button class="btn small" id="save-prof" type="button">Save profile</button>
           <p class="msg" id="prof-msg" role="status"></p>
           <p class="okmsg" id="prof-ok" role="status"></p>
@@ -564,7 +563,7 @@ textarea.input{resize:vertical;font:inherit}
     var cur = ch.filter(function(c){ return c.id === payWho; })[0];
     if (cur) payButtons('btn payopt', cur.pay).forEach(function(a){ opts.append(a); });
     $('pay-empty').hidden = !!cur;
-    $('pay-empty').textContent = isAdmin ? 'No payment options yet. Owner: tap the shop name, address or phone to add a card payment link, Cash App or Venmo.' : 'Online payment is not set up yet. You can pay at the shop.';
+    $('pay-empty').textContent = isAdmin ? 'No payment options yet. Owner: add your Cash App, Venmo and card link to config.js.' : 'Online payment is not set up yet. You can pay at the shop.';
   }
   function goPay(id){
     if (id) payWho = id; renderPayPanel();
@@ -573,7 +572,7 @@ textarea.input{resize:vertical;font:inherit}
     setTimeout(function(){ $('pay-panel').scrollIntoView({block:'start', behavior:'smooth'}); }, 60);
   }
   async function loadPay(){
-    if (!sb) return;
+    if (!sb){ var P0 = CFG.PAYMENTS || {}; PAY = {cashapp: cleanTag(P0.CASHAPP, '$'), venmo: cleanTag(P0.VENMO, '@'), card_link: okLink(cleanLink(P0.CARD_LINK)) ? cleanLink(P0.CARD_LINK) : ''}; renderPayPanel(); return; }
     async function pick(q1, q2){ var r = await q1(); if (r.error) r = await q2(); return r; }
     try {
       var r = await pick(function(){ return sb.from('shop_settings').select('cashapp,venmo,card_link').eq('id', 1).maybeSingle(); }, function(){ return sb.from('shop_settings').select('cashapp,venmo').eq('id', 1).maybeSingle(); });
@@ -583,6 +582,9 @@ textarea.input{resize:vertical;font:inherit}
       var r2 = await pick(function(){ return sb.from('barbers').select('id,cashapp,venmo,card_link'); }, function(){ return sb.from('barbers').select('id,cashapp,venmo'); });
       if (!r2.error){ BPAY = {}; (r2.data || []).forEach(function(x){ BPAY[x.id] = {cashapp: x.cashapp || '', venmo: x.venmo || '', card_link: x.card_link || ''}; }); }
     } catch(e){}
+    var P = CFG.PAYMENTS || {};
+    var fromCfg = {cashapp: cleanTag(P.CASHAPP, '$'), venmo: cleanTag(P.VENMO, '@'), card_link: okLink(cleanLink(P.CARD_LINK)) ? cleanLink(P.CARD_LINK) : ''};
+    if (hasPay(fromCfg)) PAY = {cashapp: fromCfg.cashapp || PAY.cashapp, venmo: fromCfg.venmo || PAY.venmo, card_link: fromCfg.card_link || PAY.card_link};
     renderContact(); if (confirmed) updateForm(); renderProfile(); if (!profDirty) fillProfileFields(); renderPayPanel();
   }
   function openShopEdit(focusId){
@@ -603,7 +605,7 @@ textarea.input{resize:vertical;font:inherit}
         h('button',{class:'editable',type:'button','aria-label':'Edit address',onclick:function(){ openShopEdit('se-address'); }}, SHOP.address),
         h('span',{'aria-hidden':'true'}, '·'),
         h('button',{class:'editable',type:'button','aria-label':'Edit phone number',onclick:function(){ openShopEdit('se-phone'); }}, SHOP.phone));
-      $('edit-hint').textContent = 'Owner: tap the name, address or phone number to change them, and to add card, Cash App and Venmo payments.';
+      $('edit-hint').textContent = 'Owner: tap the name, address or phone number to change them, and to change it.';
     } else {
       nm.textContent = SHOP.name;
       c.append(
@@ -1634,7 +1636,7 @@ textarea.input{resize:vertical;font:inherit}
     {target:'#appt-new', title:'Add a walk-in', text:'Booking someone in person or over the phone? Add it here so nobody else can take that time.', before:open('desk-bookings')},
     {target:'#desk-top', title:'Choose a barber', text:'The sections below are for the barber picked here.'},
     {target:'#desk-activity', title:'Recent activity', text:'New bookings and cancellations show up here. Keep the page open to get alerts.', before:open('desk-activity')},
-    {target:'#desk-profile', title:'Your profile', text:'Your specialties, a short bio, and your own card payment link, Cash App and Venmo. Customers can pay you under Pay for your cut.', before:open('desk-profile')},
+    {target:'#desk-profile', title:'Your profile', text:'Your specialties and a short bio. Customers see these when they tap your name.', before:open('desk-profile')},
     {target:'#desk-notes', title:'Notes for customers', text:'Going on vacation or leaving early? Post a note and customers will see it when booking.', before:open('desk-notes')},
     {target:'#desk-days', title:'Your hours', text:'Turn days on or off and set your hours, then tap Save day. Use the tabs to see Today, Tomorrow or the next 2 weeks.', before:open('desk-days')},
     {target:'#side-open', title:'Your account', text:'Log out here when you are done.'},
