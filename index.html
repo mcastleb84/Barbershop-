@@ -332,6 +332,7 @@ textarea.input{resize:vertical;font:inherit}
             <div class="field" style="max-width:220px"><label for="ap-day">Day</label><select class="sel" id="ap-day"></select></div>
             <div class="field" style="max-width:160px"><label for="ap-time">Time</label><select class="sel" id="ap-time"></select></div>
           </div>
+          <p class="notice" id="ap-help" hidden style="margin:0"></p>
           <div class="field" style="max-width:420px"><label for="ap-name">Customer name</label><input class="input" id="ap-name" type="text" maxlength="60" placeholder="Andre Collins" autocomplete="off"></div>
           <div class="field" style="max-width:420px"><label for="ap-phone">Phone (optional)</label><input class="input" id="ap-phone" type="tel" maxlength="20" placeholder="(555) 214-7788" autocomplete="off"></div>
           <div class="field" style="max-width:420px"><label for="ap-note">Note (optional)</label><input class="input" id="ap-note" type="text" maxlength="200" placeholder="Low fade, beard trim" autocomplete="off"></div>
@@ -962,6 +963,10 @@ textarea.input{resize:vertical;font:inherit}
     var bs = $('ap-barber'), cur = keep ? bs.value : (apptFilter && apptFilter !== 'all' ? apptFilter : (staff.barberId || (choices[0]&&choices[0].id)));
     bs.textContent = ''; choices.forEach(function(b){ bs.append(h('option',{value:b.id}, b.name)); });
     if (choices.some(function(b){ return b.id === cur; })) bs.value = cur;
+    if (!keep && !days().some(function(k){ return freeCount(bs.value, k) > 0; })){
+      var withDays = choices.filter(function(b){ return days().some(function(k){ return freeCount(b.id, k) > 0; }); })[0];
+      if (withDays) bs.value = withDays.id;
+    }
     $('ap-barber-wrap').hidden = choices.length < 2;
     var ds = $('ap-day'), curDay = keep ? ds.value : null;
     ds.textContent = '';
@@ -969,6 +974,18 @@ textarea.input{resize:vertical;font:inherit}
     if (!open.length) ds.append(h('option',{value:''}, 'No open days'));
     open.forEach(function(k){ ds.append(h('option',{value:k}, dayLabel(k))); });
     if (curDay && open.indexOf(curDay) >= 0) ds.value = curDay;
+    var help = $('ap-help'); help.textContent = '';
+    if (!open.length){
+      var who = barberName(bs.value), others = choices.filter(function(b){ return b.id !== bs.value && days().some(function(k){ return freeCount(b.id, k) > 0; }); });
+      help.append(who + ' has no open days in the next 2 weeks, so there is nothing to pick yet. ',
+        h('button',{class:'btn ghost small', type:'button', onclick:function(){
+          deskBarber = bs.value; $('desk-barber').value = deskBarber; profDirty = false; fillProfileFields(); renderDeskNotes(); renderDeskRows();
+          $('desk-days').scrollIntoView({block:'start', behavior:'smooth'});
+        }}, 'Set ' + who + '\'s days'),
+        others.length ? h('span',{}, ' or pick another barber above.') : null);
+    }
+    help.hidden = !!open.length;
+    $('ap-save').disabled = !open.length;
     fillApptTimes(keep);
   }
   function fillApptTimes(keep){
