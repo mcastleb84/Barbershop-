@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#5e1527">
-<title>Barbershop</title>
+<title>Barbershop (test mode)</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
@@ -213,6 +213,7 @@ textarea.input{resize:vertical;font:inherit}
 </style>
 </head>
 <body>
+<div role="note" style="background:#FFF1CC;color:#5A3A00;border-bottom:1px solid #E8C873;font:600 14px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif;padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));text-align:center">Test mode: no login needed. Anyone with this link can book and use the Barber desk. Use made-up names and phone numbers.</div>
 
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="scrim" id="scrim" hidden></div>
@@ -461,6 +462,7 @@ textarea.input{resize:vertical;font:inherit}
 <script>
 (function(){
   var SLOT = 30;
+  var TEST_MODE = true; // test.html only: everyone is treated as the shop owner, no login
   var CFG = window.BARBERSHOP_CONFIG || {};
   // Defaults shown until the database answers. The real values come from shop_settings and shop_hours.
   var SHOP = {name:'Barbershop', address:'123 Main Street, Anytown, NY 12345', phone:'(555) 555-0123'};
@@ -1224,7 +1226,7 @@ textarea.input{resize:vertical;font:inherit}
     } catch(err){ msg.textContent = 'Could not sign in. Check your connection and try again.'; }
     $('login-btn').disabled = false;
   });
-  $('logout-btn').addEventListener('click', function(){ if (sb) sb.auth.signOut(); setSide(false); });
+  $('logout-btn').addEventListener('click', function(){ if (TEST_MODE){ setSide(false); return; } if (sb) sb.auth.signOut(); setSide(false); });
 
   /* ---------- sidebar ---------- */
   var sideReturn = null;
@@ -1333,6 +1335,7 @@ textarea.input{resize:vertical;font:inherit}
   }
 
   async function loadStaff(){
+    if (TEST_MODE){ staff = {barberId:null, isAdmin:true}; canEdit = true; isAdmin = true; activity = []; knownAct = null; deskBarber = null; renderContact(); return; }
     staff = null; canEdit = false; isAdmin = false; activity = []; knownAct = null;
     if (session){
       try {
@@ -1355,13 +1358,13 @@ textarea.input{resize:vertical;font:inherit}
     sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
     try {
       var s = await sb.auth.getSession();
-      session = s.data && s.data.session ? s.data.session : null;
+      session = TEST_MODE ? {user:{id:'test-mode'}} : (s.data && s.data.session ? s.data.session : null);
     } catch(e){ session = null; }
     await loadStaff();
     await refresh(true);
     loadPay();
     applyTab();
-    sb.auth.onAuthStateChange(function(ev, s2){
+    if (!TEST_MODE) sb.auth.onAuthStateChange(function(ev, s2){
       setTimeout(async function(){
         var before = session && session.user ? session.user.id : null;
         session = s2 || null;
