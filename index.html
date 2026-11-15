@@ -36,8 +36,8 @@ window.bsApplyTheme = function(t){
   if (meta) meta.setAttribute('content', t.bg);
 };
 window.bsThemeOf = function(v){ return !v ? null : (v.id === 'custom' ? v : BS_THEMES[v.id] || null); };
-(function(){ try { localStorage.removeItem('bs.colors'); var v = JSON.parse(localStorage.getItem('bs.shoptheme') || 'null'); if (v) bsApplyTheme(bsThemeOf(v)); } catch(e){} })();
 </script>
+<script src="look.js"></script>
 
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -278,6 +278,26 @@ textarea.input{resize:vertical;font:inherit}
 .whorow p{margin:0;overflow-wrap:anywhere}
 .loadnote{margin:0;font-size:13px;color:var(--on-bg)}
 .loadnote:empty{display:none}
+/* colors and text controls */
+.lk{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+.lk-sec{display:flex;flex-direction:column;gap:8px}
+.lk-h{margin:0;font-weight:700;font-size:14px}
+.lk-sw{display:flex;flex-wrap:wrap;gap:8px}
+.lk-dot{width:34px;height:34px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line);padding:0;flex:none;position:relative;overflow:hidden;cursor:pointer;margin:0}
+.lk-dot[aria-pressed="true"],.lk-dot[data-on="1"]{box-shadow:0 0 0 2px var(--ink)}
+.lk-any{background:conic-gradient(#e53935,#fdd835,#43a047,#1e88e5,#8e24aa,#e53935)}
+.lk-any input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:0;padding:0;cursor:pointer}
+.lk-chips{display:flex;flex-wrap:wrap;gap:6px}
+.lk-chips button{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600}
+.lk-chips button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.lk-chips button span{width:20px;height:20px;border-radius:5px;border:1px solid rgba(0,0,0,.15);flex:none}
+.lk-check{display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600}
+.lk-check input{width:20px;height:20px}
+.lk-now{display:flex;gap:10px;align-items:center}
+.lk-now img{width:56px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.lk-up{position:relative;overflow:hidden;cursor:pointer;display:inline-block}
+.lk-up input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.lk input[type=range]{width:100%;accent-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.side{transition:none!important}*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
@@ -304,6 +324,7 @@ textarea.input{resize:vertical;font:inherit}
     <button class="menu-item" type="button" data-menu="book">Book a cut</button>
     <button class="menu-item" type="button" data-menu="app-install">Get the app</button>
     <button class="menu-item" type="button" data-menu="tour-btn">How it works</button>
+    <button class="menu-item" type="button" data-menu="my-open">Colors and text</button>
     <button class="menu-item" type="button" data-menu="side-open" id="menu-login">Barber login</button>
     <button class="menu-item" type="button" data-menu="owner-open" id="menu-owner" hidden>Owner settings</button>
   </section>
@@ -321,17 +342,28 @@ textarea.input{resize:vertical;font:inherit}
     <div id="own-shop"></div>
   </section>
   <section class="ownsec">
-    <h3 class="ownh">Color scheme</h3>
+    <h3 class="ownh">Colors and text</h3>
     <div class="swatches" id="own-swatches" role="radiogroup" aria-label="Color scheme"></div>
     <p style="margin:12px 0 8px;font-weight:700">Or make your own</p>
     <div class="addrow" style="align-items:center">
       <label class="colorpick">Background <input type="color" id="own-bg" value="#5e1527"></label>
       <label class="colorpick">Buttons <input type="color" id="own-accent" value="#c4222b"></label>
     </div>
+    <div id="own-look" class="lk"></div>
     <div class="addrow" style="margin-top:12px"><button class="btn small" type="button" id="own-save-colors">Save colors</button><button class="btn ghost small" type="button" id="own-undo-colors">Undo</button></div>
     <p class="msg" id="own-colors-msg" role="status"></p>
     <p class="okmsg" id="own-colors-ok" role="status"></p>
   </section>
+</aside>
+<div class="scrim" id="my-scrim" hidden></div>
+<aside class="side" id="my-side" role="dialog" aria-modal="true" aria-labelledby="my-title">
+  <div class="side-head">
+    <h2 id="my-title">Colors and text</h2>
+    <button class="side-close" id="my-close" type="button" aria-label="Close colors and text">&times;</button>
+  </div>
+  <p class="hint" style="margin:0">Make the app look the way you like. This only changes it for you, on this phone or computer.</p>
+  <div id="my-look" class="lk"></div>
+  <button class="btn ghost small" type="button" id="my-reset">Back to the shop's look</button>
 </aside>
 <div class="scrim" id="scrim" hidden></div>
 <aside class="side" id="side" role="dialog" aria-modal="true" aria-labelledby="side-title">
@@ -387,6 +419,7 @@ textarea.input{resize:vertical;font:inherit}
   <button class="side-open" id="app-install" type="button" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Get the app</button>
   <button class="side-open" id="owner-open" type="button" hidden aria-controls="own-side" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Owner settings</button>
   <button class="side-open" id="tour-btn" type="button">How it works</button>
+  <button class="side-open" id="my-open" type="button" aria-controls="my-side" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.8-1.9 0-.5-.2-.9-.5-1.2-.3-.3-.5-.8-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/></svg>Colors</button>
   <button class="side-open" id="side-open" type="button" aria-haspopup="dialog" aria-controls="side" aria-expanded="false"><span class="dot2" aria-hidden="true"></span><span id="side-open-text">Barber login</span></button>
 </div>
 
@@ -735,18 +768,32 @@ textarea.input{resize:vertical;font:inherit}
       if (!$('own-shop').contains($('shop-edit'))) $('own-shop').appendChild($('shop-edit'));
       $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone;
       $('shop-edit').hidden = false;
-      ownReturn = document.activeElement; themeDraft = themeSaved; renderOwnSwatches();
+      ownReturn = document.activeElement; themeDraft = themeSaved; renderOwnSwatches(); initOwnLook();
       $('own-colors-msg').textContent = ''; $('own-colors-ok').textContent = '';
       $('own-scrim').hidden = false; el.classList.add('open'); $('owner-open').setAttribute('aria-expanded', 'true');
       setTimeout(function(){ var f = $(focusId || 'own-close'); if (f) f.focus(); }, 60);
     } else {
       if (!el.classList.contains('open')) return;
       $('own-scrim').hidden = true; el.classList.remove('open'); $('owner-open').setAttribute('aria-expanded', 'false');
-      bsApplyTheme(bsThemeOf(themeSaved));
+      bsRender(themeSaved);
       if (ownReturn && ownReturn.focus) ownReturn.focus();
     }
   }
   function openOwner(focusId){ setOwner(true, focusId); }
+  var ownLook = null;
+  function initOwnLook(){
+    var opts = {
+      get: function(){ return lookExtras(themeDraft); },
+      set: function(patch){
+        var t = Object.assign({id:'classic'}, themeDraft || {}, patch);
+        Object.keys(patch).forEach(function(k){ if (patch[k] === '' || patch[k] === false) delete t[k]; });
+        themeDraft = t; bsRender(themeDraft); $('own-colors-ok').textContent = 'Preview. Tap Save colors to keep it.'; return true;
+      },
+      bgNow: function(){ return bsColor.hexOk(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()); },
+      photoSize: 1000
+    };
+    if (!ownLook) ownLook = bsLookControls($('own-look'), opts); else ownLook.draw();
+  }
   function renderOwnSwatches(){
     var box = $('own-swatches'); box.textContent = '';
     var cur = themeDraft ? themeDraft.id : 'classic';
@@ -755,12 +802,13 @@ textarea.input{resize:vertical;font:inherit}
       var b = document.createElement('button'); b.type = 'button'; b.className = 'swatch'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(cur === id));
       b.innerHTML = '<span class="sw"><i style="background:' + bg + ';flex:2"></i><i style="background:' + ac + '"></i><i style="background:' + bl + '"></i></span>';
       b.append(t.name);
-      b.addEventListener('click', function(){ themeDraft = id === 'classic' ? null : {id:id}; bsApplyTheme(bsThemeOf(themeDraft)); $('own-colors-ok').textContent = 'Preview: ' + t.name + '. Tap Save colors to keep it.'; renderOwnSwatches(); });
+      b.addEventListener('click', function(){ themeDraft = Object.assign({}, lookExtras(themeDraft), {id:id}); if (id === 'classic' && !Object.keys(lookExtras(themeDraft)).length) themeDraft = null; bsRender(themeDraft); $('own-colors-ok').textContent = 'Preview: ' + t.name + '. Tap Save colors to keep it.'; renderOwnSwatches(); });
       box.appendChild(b);
     });
     if (themeDraft && themeDraft.id === 'custom'){ $('own-bg').value = themeDraft.bg; $('own-accent').value = themeDraft.accent; }
   }
-  function previewCustom(){ themeDraft = {id:'custom', bg:$('own-bg').value, accent:$('own-accent').value, blue:$('own-accent').value}; bsApplyTheme(themeDraft); $('own-colors-ok').textContent = 'Preview: your colors. Tap Save colors to keep them.'; renderOwnSwatches(); }
+  function lookExtras(t){ var x = bsCleanExtras(t); delete x.bg; return x; }
+  function previewCustom(){ themeDraft = Object.assign({}, lookExtras(themeDraft), {id:'custom', bg:$('own-bg').value, accent:$('own-accent').value, blue:$('own-accent').value}); bsRender(themeDraft); $('own-colors-ok').textContent = 'Preview: your colors. Tap Save colors to keep them.'; renderOwnSwatches(); }
   async function saveTheme(){
     var msg = $('own-colors-msg'); msg.textContent = ''; $('own-colors-ok').textContent = '';
     if (!sb || !isAdmin){ msg.textContent = 'Sign in as the owner to change colors.'; return; }
@@ -780,7 +828,7 @@ textarea.input{resize:vertical;font:inherit}
       if (r.error || !r.data) return;
       var v = null; try { v = r.data.theme ? JSON.parse(r.data.theme) : null; } catch(e){ v = null; }
       themeSaved = v;
-      if (!$('own-side').classList.contains('open')) bsApplyTheme(bsThemeOf(v));
+      if (!$('own-side').classList.contains('open')) bsRender(v);
       try { if (v) localStorage.setItem('bs.shoptheme', JSON.stringify(v)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
     } catch(e){}
   }
@@ -1473,7 +1521,7 @@ textarea.input{resize:vertical;font:inherit}
   $('own-bg').addEventListener('input', previewCustom);
   $('own-accent').addEventListener('input', previewCustom);
   $('own-save-colors').addEventListener('click', saveTheme);
-  $('own-undo-colors').addEventListener('click', function(){ themeDraft = themeSaved; bsApplyTheme(bsThemeOf(themeSaved)); renderOwnSwatches(); $('own-colors-ok').textContent = 'Back to your saved colors.'; });
+  $('own-undo-colors').addEventListener('click', function(){ themeDraft = themeSaved; bsRender(themeSaved); renderOwnSwatches(); if (ownLook) ownLook.draw(); $('own-colors-ok').textContent = 'Back to your saved colors.'; });
   $('pay-who').addEventListener('change', function(e){ payWho = e.target.value; renderPayPanel(); });
   $('pay-quick').addEventListener('click', function(){ goPay(); });
   $('pay-close').addEventListener('click', function(){ setPay(false); });
@@ -1484,6 +1532,31 @@ textarea.input{resize:vertical;font:inherit}
     setTimeout(function(){ var t = $(target); if (t) t.click(); }, 260);
   }); });
   $('pay-scrim').addEventListener('click', function(){ setPay(false); });
+  /* customer's own colors and text */
+  var myLook = null, myReturn = null;
+  function setMy(open){
+    var el = $('my-side');
+    if (open){
+      myReturn = document.activeElement;
+      if (!myLook) myLook = bsLookControls($('my-look'), {
+        get: bsMyLook,
+        set: function(patch){ var v = Object.assign(bsMyLook(), patch); Object.keys(patch).forEach(function(k){ if (patch[k] === '' || patch[k] === false) delete v[k]; }); var ok = bsSaveMyLook(v); bsRender(); return ok; },
+        bgNow: function(){ return bsColor.hexOk(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()); },
+        mainColor: true, photoSize: 1400
+      }); else myLook.draw();
+      $('my-scrim').hidden = false; el.classList.add('open'); $('my-open').setAttribute('aria-expanded', 'true');
+      setTimeout(function(){ $('my-close').focus(); }, 60);
+    } else {
+      if (!el.classList.contains('open')) return;
+      $('my-scrim').hidden = true; el.classList.remove('open'); $('my-open').setAttribute('aria-expanded', 'false');
+      if (myReturn && myReturn.focus) myReturn.focus();
+    }
+  }
+  $('my-open').addEventListener('click', function(){ setMy(!$('my-side').classList.contains('open')); });
+  $('my-close').addEventListener('click', function(){ setMy(false); });
+  $('my-scrim').addEventListener('click', function(){ setMy(false); });
+  $('my-reset').addEventListener('click', function(){ bsSaveMyLook({}); bsRender(); if (myLook) myLook.draw(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setMy(false); });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setPay(false); });
   window.goPay = goPay;
   $('appt-filter').addEventListener('change', function(e){ apptFilter = e.target.value; renderDeskBookings(); });
