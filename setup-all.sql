@@ -2,7 +2,7 @@
 -- ONE script for the whole database. Paste into Supabase > SQL Editor > New query, then tap Run.
 -- Safe to run as many times as you like: it only adds what is missing and refreshes the app's functions.
 -- It replaces running these one by one: disclaimer-setup, booking-window, live-photo,
--- employees-setup, days-off-setup and cancel-security.
+-- employees-setup, days-off-setup and cancel-security, and adds photo storage and reminders.
 --
 -- At the end it shows a checklist. Every line should say OK.
 -- A line that says MISSING is something the app needs that this database does not have yet.
@@ -362,7 +362,191 @@ end $$;
 
 
 -- ============================================================
--- 7. Checklist: does the database have everything the app uses?
+-- 7. Shop photos in Supabase Storage
+-- ============================================================
+-- The owner's photo is stored as a normal image file. Anyone can view it; only the owner can add or remove it.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('shop-photos', 'shop-photos', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = true, file_size_limit = 5242880, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+
+drop policy if exists shop_photos_owner_read   on storage.objects;
+drop policy if exists shop_photos_owner_add    on storage.objects;
+drop policy if exists shop_photos_owner_change on storage.objects;
+drop policy if exists shop_photos_owner_remove on storage.objects;
+create policy shop_photos_owner_read   on storage.objects for select to authenticated using (bucket_id = 'shop-photos' and public.emp_is_admin());
+create policy shop_photos_owner_add    on storage.objects for insert to authenticated with check (bucket_id = 'shop-photos' and public.emp_is_admin());
+create policy shop_photos_owner_change on storage.objects for update to authenticated using (bucket_id = 'shop-photos' and public.emp_is_admin()) with check (bucket_id = 'shop-photos' and public.emp_is_admin());
+create policy shop_photos_owner_remove on storage.objects for delete to authenticated using (bucket_id = 'shop-photos' and public.emp_is_admin());
+
+-- ============================================================
+-- 8. Customer email on bookings (optional, for reminders)
+-- ============================================================
+alter table public.bookings add column if not exists customer_email text;
+alter table public.bookings add column if not exists reminder_sent_at timestamptz;
+
+-- Right after booking, the app adds the email. Only works on a brand-new booking (before its cancel code is shown).
+create or replace function public.set_booking_email(p_id text, p_name text, p_email text)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare v_email text := lower(trim(coalesce(p_email, '')));
+begin
+  if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or length(v_email) > 120 then return false; end if;
+  update public.bookings set customer_email = v_email
+   where id::text = p_id
+     and lower(trim(customer_name)) = lower(trim(p_name))
+     and customer_email is null
+     and not coalesce(code_shown, true);
+  return found;
+end $$;
+revoke all on function public.set_booking_email(text, text, text) from public;
+grant execute on function public.set_booking_email(text, text, text) to anon, authenticated;
+
+-- ============================================================
+-- 9. Appointment reminders by text (Twilio) and email (Resend)
+-- ============================================================
+create extension if not exists http with schema extensions;
+create extension if not exists pg_cron;
+
+-- Your reminder settings and keys. Private: the apps cannot read this table.
+create table if not exists public.reminder_settings (
+  id            int primary key default 1 check (id = 1),
+  enabled       boolean not null default false,
+  time_zone     text not null default 'America/New_York',
+  site_url      text not null default 'https://mcastleb84.github.io/Barbershop-/',
+  send_from     int  not null default 9,    -- earliest hour to send (9 = 9 AM)
+  send_until    int  not null default 20,   -- latest hour to send (20 = 8 PM)
+  twilio_sid    text not null default '',
+  twilio_token  text not null default '',
+  twilio_from   text not null default '',   -- your Twilio number, like +15551234567
+  resend_key    text not null default '',
+  email_from    text not null default ''    -- like 'Fresh Cuts <reminders@freshcuts.com>'
+);
+insert into public.reminder_settings (id) values (1) on conflict (id) do nothing;
+alter table public.reminder_settings enable row level security;
+revoke all on public.reminder_settings from anon, authenticated;
+
+create table if not exists public.reminder_log (
+  id         bigserial primary key,
+  booking_id text,
+  channel    text,
+  sent_to    text,
+  ok         boolean,
+  detail     text,
+  created_at timestamptz not null default now()
+);
+alter table public.reminder_log enable row level security;
+revoke all on public.reminder_log from anon, authenticated;
+
+-- US phone numbers become +1XXXXXXXXXX. Anything else that already starts with + is kept.
+create or replace function public.reminder_phone(p text)
+returns text language sql immutable as $$
+  select case
+    when length(regexp_replace(coalesce(p, ''), '\D', '', 'g')) = 10 then '+1' || regexp_replace(p, '\D', '', 'g')
+    when length(regexp_replace(coalesce(p, ''), '\D', '', 'g')) = 11 and regexp_replace(p, '\D', '', 'g') like '1%' then '+' || regexp_replace(p, '\D', '', 'g')
+    when trim(coalesce(p, '')) like '+%' and length(regexp_replace(p, '\D', '', 'g')) between 8 and 15 then '+' || regexp_replace(p, '\D', '', 'g')
+    else null end;
+$$;
+
+create or replace function public.reminder_send_text(p_to text, p_body text, p_booking text)
+returns boolean language plpgsql security definer set search_path = public, extensions as $$
+declare c public.reminder_settings; r extensions.http_response; v_ok boolean := false; v_detail text;
+begin
+  select * into c from public.reminder_settings where id = 1;
+  if c.twilio_sid = '' or c.twilio_token = '' or c.twilio_from = '' then return false; end if;
+  begin
+    r := extensions.http((
+      'POST', 'https://api.twilio.com/2010-04-01/Accounts/' || c.twilio_sid || '/Messages.json',
+      array[('Authorization', 'Basic ' || replace(encode(convert_to(c.twilio_sid || ':' || c.twilio_token, 'UTF8'), 'base64'), E'\n', ''))::extensions.http_header],
+      'application/x-www-form-urlencoded',
+      'To=' || extensions.urlencode(p_to) || '&From=' || extensions.urlencode(c.twilio_from) || '&Body=' || extensions.urlencode(p_body)
+    )::extensions.http_request);
+    v_ok := r.status between 200 and 299; v_detail := r.status || ' ' || left(r.content, 300);
+  exception when others then v_detail := sqlerrm;
+  end;
+  insert into public.reminder_log (booking_id, channel, sent_to, ok, detail) values (p_booking, 'text', p_to, v_ok, v_detail);
+  return v_ok;
+end $$;
+
+create or replace function public.reminder_send_email(p_to text, p_subject text, p_body text, p_booking text)
+returns boolean language plpgsql security definer set search_path = public, extensions as $$
+declare c public.reminder_settings; r extensions.http_response; v_ok boolean := false; v_detail text;
+begin
+  select * into c from public.reminder_settings where id = 1;
+  if c.resend_key = '' or c.email_from = '' then return false; end if;
+  begin
+    r := extensions.http((
+      'POST', 'https://api.resend.com/emails',
+      array[('Authorization', 'Bearer ' || c.resend_key)::extensions.http_header],
+      'application/json',
+      json_build_object('from', c.email_from, 'to', json_build_array(p_to), 'subject', p_subject, 'text', p_body)::text
+    )::extensions.http_request);
+    v_ok := r.status between 200 and 299; v_detail := r.status || ' ' || left(r.content, 300);
+  exception when others then v_detail := sqlerrm;
+  end;
+  insert into public.reminder_log (booking_id, channel, sent_to, ok, detail) values (p_booking, 'email', p_to, v_ok, v_detail);
+  return v_ok;
+end $$;
+
+-- Every 15 minutes: remind customers whose appointment is 2 to 24 hours away (only between send_from and send_until).
+create or replace function public.send_due_reminders()
+returns integer language plpgsql security definer set search_path = public as $$
+declare c public.reminder_settings; b record; v_shop text; v_when text; v_msg text; v_n int := 0; v_hour int;
+begin
+  select * into c from public.reminder_settings where id = 1;
+  if not found or not c.enabled then return 0; end if;
+  v_hour := extract(hour from now() at time zone c.time_zone)::int;
+  if v_hour < c.send_from or v_hour >= c.send_until then return 0; end if;
+  select coalesce(nullif(trim(s.name), ''), 'the shop') into v_shop from public.shop_settings s where s.id = 1;
+
+  for b in
+    select k.*, coalesce(nullif(trim(br.name), ''), 'your barber') as barber_name,
+           ((k.day::date + make_interval(mins => k.start_min)) at time zone c.time_zone) as appt_at
+      from public.bookings k left join public.barbers br on br.id::text = k.barber_id::text
+     where k.reminder_sent_at is null
+       and (public.reminder_phone(k.customer_phone) is not null or coalesce(k.customer_email, '') <> '')
+       and ((k.day::date + make_interval(mins => k.start_min)) at time zone c.time_zone) between now() + interval '2 hours' and now() + interval '24 hours'
+     order by k.day, k.start_min
+     limit 50
+  loop
+    update public.bookings set reminder_sent_at = now() where id = b.id;   -- marked first, so nobody gets two
+    v_when := to_char(b.appt_at at time zone c.time_zone, 'FMDay, Mon FMDD "at" FMHH12:MI AM');
+    v_msg := 'Reminder from ' || v_shop || ': your appointment with ' || b.barber_name || ' is ' || v_when || '.'
+             || ' Need to cancel? ' || c.site_url;
+    if public.reminder_phone(b.customer_phone) is not null then
+      perform public.reminder_send_text(public.reminder_phone(b.customer_phone), v_msg || ' Reply STOP to opt out.', b.id::text);
+    end if;
+    if coalesce(b.customer_email, '') <> '' then
+      perform public.reminder_send_email(b.customer_email, 'Reminder: ' || v_shop || ', ' || v_when, v_msg, b.id::text);
+    end if;
+    v_n := v_n + 1;
+  end loop;
+  return v_n;
+end $$;
+
+-- Try your setup: select public.send_test_reminder('+15551234567', 'you@example.com');
+create or replace function public.send_test_reminder(p_phone text, p_email text)
+returns text language plpgsql security definer set search_path = public as $$
+declare t boolean; e boolean; v_shop text;
+begin
+  select coalesce(nullif(trim(name), ''), 'the shop') into v_shop from public.shop_settings where id = 1;
+  t := case when public.reminder_phone(p_phone) is null then null
+            else public.reminder_send_text(public.reminder_phone(p_phone), 'Test reminder from ' || v_shop || '. Texts are working.', 'test') end;
+  e := case when coalesce(p_email, '') = '' then null
+            else public.reminder_send_email(p_email, 'Test reminder from ' || v_shop, 'Emails are working.', 'test') end;
+  return 'Text: ' || coalesce(case when t then 'sent' else 'FAILED (see reminder_log)' end, 'skipped')
+      || ' | Email: ' || coalesce(case when e then 'sent' else 'FAILED (see reminder_log)' end, 'skipped');
+end $$;
+
+revoke all on function public.reminder_send_text(text, text, text)          from public, anon, authenticated;
+revoke all on function public.reminder_send_email(text, text, text, text)   from public, anon, authenticated;
+revoke all on function public.send_due_reminders()                          from public, anon, authenticated;
+revoke all on function public.send_test_reminder(text, text)                from public, anon, authenticated;
+
+-- Run the reminder check every 15 minutes.
+select cron.unschedule(jobid) from cron.job where jobname = 'booking-reminders';
+select cron.schedule('booking-reminders', '*/15 * * * *', 'select public.send_due_reminders()');
+
+-- ============================================================
+-- 10. Checklist: does the database have everything the app uses?
 -- ============================================================
 with need(part, kind, tbl, col) as (values
   ('Barbers',            'col', 'barbers',       'id'),
@@ -402,7 +586,10 @@ with need(part, kind, tbl, col) as (values
   ('Employees',          'fn',  'list_employees',     null),
   ('Employees',          'fn',  'save_employee',      null),
   ('Employees',          'fn',  'remove_employee',    null),
-  ('Employee sign-in',   'fn',  'claim_staff_invite', null)
+  ('Employee sign-in',   'fn',  'claim_staff_invite', null),
+  ('Reminder email',     'col', 'bookings',      'customer_email'),
+  ('Reminder email',     'fn',  'set_booking_email',  null),
+  ('Reminders',          'fn',  'send_due_reminders', null)
 )
 select part as "what", coalesce(tbl || '.' || col, tbl) as "needs",
   case when (kind = 'col' and exists (select 1 from information_schema.columns c
@@ -426,7 +613,23 @@ select 'Customers can read shop look', 'read rule on shop_settings',
                         and cmd in ('SELECT', 'ALL') and roles && array['anon', 'public']::name[]))
        then 'OK' else 'MISSING' end
 union all
+select 'Photo storage', 'shop-photos bucket',
+  case when exists (select 1 from storage.buckets where id = 'shop-photos' and public) then 'OK' else 'MISSING' end
+union all
+select 'Reminders schedule', 'every 15 minutes',
+  case when exists (select 1 from cron.job where jobname = 'booking-reminders' and active) then 'OK' else 'MISSING' end
+union all
+select 'Reminders', 'turned on',
+  (select case when enabled then 'ON' else 'OFF (see step 3 in the reminders guide)' end from public.reminder_settings where id = 1)
+union all
+select 'Reminder texts', 'Twilio keys',
+  (select case when twilio_sid <> '' and twilio_token <> '' and twilio_from <> '' then 'OK' else 'NOT SET UP' end from public.reminder_settings where id = 1)
+union all
+select 'Reminder emails', 'Resend key',
+  (select case when resend_key <> '' and email_from <> '' then 'OK' else 'NOT SET UP' end from public.reminder_settings where id = 1)
+union all
 select 'Saved shop look', 'theme on shop_settings',
   coalesce((select case when coalesce(theme, '') = '' then 'EMPTY (nothing saved from Owner settings yet)'
+                        when theme like '%data:image%' then 'OK, ' || round(length(theme) / 1024.0) || ' KB (photo moves to Storage next time the owner opens the Staff app)'
                         else 'OK, ' || round(length(theme) / 1024.0) || ' KB saved' end
             from public.shop_settings where id = 1), 'MISSING');

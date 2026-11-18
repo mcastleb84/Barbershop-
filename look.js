@@ -201,7 +201,7 @@
         var m = box.querySelector('[data-photo-msg]');
         if (!/^image\//.test(f.type)){ m.textContent = 'Pick a photo.'; return; }
         m.textContent = 'Adding your photo…';
-        try { var url = await BS.bsShrinkPhoto(f, opts.photoSize || 1200, .65); if (set({ photo: url, fade: get().fade == null ? 45 : get().fade, px: '', py: '', zoom: '' }) === false){ m.textContent = 'That photo is too big to save. Try a smaller one.'; return; } draw(); }
+        try { var url = await BS.bsShrinkPhoto(f, opts.photoSize || 1200, opts.upload ? .8 : .65); if (opts.upload){ m.textContent = 'Uploading your photo…'; try { url = await opts.upload(url); } catch(upErr){ m.textContent = 'Could not upload the photo. Run setup-all.sql in Supabase, then try again.'; return; } } if (set({ photo: url, fade: get().fade == null ? 45 : get().fade, px: '', py: '', zoom: '' }) === false){ m.textContent = 'That photo is too big to save. Try a smaller one.'; return; } draw(); }
         catch(err){ m.textContent = "That photo didn't open. Try another one."; }
       }
     });

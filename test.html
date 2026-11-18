@@ -412,7 +412,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     </div>
     <div id="own-look" class="lk"></div>
     <div class="addrow" style="margin-top:12px"><button class="btn small" type="button" id="own-save-colors">Save colors</button><button class="btn ghost small" type="button" id="own-undo-colors">Undo</button></div>
-    <p class="hint" style="margin-top:8px">Changes save on their own and show for customers right away. App version 4</p>
+    <p class="hint" style="margin-top:8px">Changes save on their own and show for customers right away. App version 5</p>
     <p class="msg" id="own-colors-msg" role="status"></p>
     <p class="okmsg" id="own-colors-ok" role="status"></p>
   </section>
@@ -541,6 +541,11 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
               <label for="cust-phone">Phone number <span class="opt">(optional)</span></label>
               <input class="input" id="cust-phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" placeholder="(555) 555-0123">
             </div>
+            <div class="field">
+              <label for="cust-email">Email <span class="opt">(optional)</span></label>
+              <input class="input" id="cust-email" type="email" inputmode="email" maxlength="120" autocomplete="email" placeholder="you@example.com">
+            </div>
+            <p class="hint" style="margin:-4px 0 4px">Add a phone number or email and we'll send you a reminder the day before.</p>
             <div class="field">
               <label for="cust-note">Note for your barber <span class="opt">(optional)</span></label>
               <textarea class="input" id="cust-note" rows="3" maxlength="200" placeholder="The cut you want, or anything your barber should know"></textarea>
@@ -902,7 +907,8 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         return true;
       },
       bgNow: function(){ return bsColor.hexOk(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()); },
-      photoSize: 1000
+      upload: uploadShopPhoto,
+      photoSize: 1400
     };
     if (!ownLook) ownLook = bsLookControls($('own-look'), opts); else ownLook.draw();
   }
@@ -952,8 +958,42 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         // Colors picked earlier under "Colors" on this phone would cover the shop look in both apps here, so clear them.
         if (clearMyLook()) bsRender(themeDraft);
         $('own-colors-ok').textContent = 'Saved. Customers see this now.';
+        tidyShopPhotos(next && next.photo);
       } catch(e){ $('own-colors-ok').textContent = ''; $('own-colors-msg').textContent = /column/i.test((e && e.message) || '') ? 'To save colors, run shop-setup.sql in Supabase first.' : 'Could not save. Sign in again and retry.'; }
     }, 700);
+  }
+  /* Shop photos live in Supabase Storage (bucket shop-photos), so customers load a normal image file
+     instead of a big block of text with every check. */
+  var PHOTO_BUCKET = 'shop-photos';
+  async function uploadShopPhoto(dataUrl){
+    if (!sb || !isAdmin) throw new Error('owner');
+    var bin = atob(dataUrl.split(',')[1]), arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    var path = 'look/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+    var up = await sb.storage.from(PHOTO_BUCKET).upload(path, new Blob([arr], {type:'image/jpeg'}), {contentType:'image/jpeg', cacheControl:'31536000', upsert:false});
+    if (up.error) throw up.error;
+    return sb.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+  function shopPhotoPath(u){ var m = /\/storage\/v1\/object\/public\/shop-photos\/(.+)$/.exec(u || ''); return m ? decodeURIComponent(m[1]) : ''; }
+  // Remove photo files the shop no longer uses (keeps the one in use).
+  async function tidyShopPhotos(keep){
+    try {
+      var r = await sb.storage.from(PHOTO_BUCKET).list('look', {limit: 100});
+      if (r.error || !r.data) return;
+      var keepName = shopPhotoPath(keep).replace(/^look\//, '');
+      var old = r.data.map(function(f){ return 'look/' + f.name; }).filter(function(p){ return p !== 'look/' + keepName; });
+      if (old.length) await sb.storage.from(PHOTO_BUCKET).remove(old);
+    } catch(e){}
+  }
+  // A photo saved the old way (as text) is moved to Storage the next time the owner opens the app.
+  async function moveOldPhoto(){
+    if (!sb || !isAdmin || !themeSaved || !/^data:image\//.test(themeSaved.photo || '')) return;
+    try {
+      var url = await uploadShopPhoto(themeSaved.photo);
+      var next = Object.assign({}, themeSaved, {photo: url});
+      var r = await sb.from('shop_settings').update({theme: JSON.stringify(next)}).eq('id', 1).select('id');
+      if (!r.error && r.data && r.data.length){ themeSaved = next; if (!$('own-side').classList.contains('open')) bsRender(next); }
+    } catch(e){}
   }
   /* Keep the customer app up to date: listen for shop changes live, and re-check when the app is opened again. */
   var themeRaw = null, themeLast = 0;
@@ -1401,7 +1441,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         cancelErr ? h('p',{class:'msg'}, 'Could not cancel. Please call the shop.') : null,
         h('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px'},
           h('button',{class:'btn ghost small',type:'button',onclick:function(){
-            confirmed = null; selTime = null; cancelArmed = false; cancelErr = false; $('cust-name').value = ''; $('cust-phone').value = ''; $('cust-note').value = ''; renderBook();
+            confirmed = null; selTime = null; cancelArmed = false; cancelErr = false; $('cust-name').value = ''; $('cust-phone').value = ''; $('cust-email').value = ''; $('cust-note').value = ''; renderBook();
           }},'Book another'),
           h('button',{class:'btn ghost small',type:'button',onclick:async function(){
             if (!cancelArmed){ cancelArmed = true; cancelErr = false; updateForm(); return; }
@@ -1432,7 +1472,8 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     var selBg = barbers.filter(function(x){ return x.id === selBarber; })[0];
     if (selBg && selBg.disclaimer && !$('disc-agree').checked){ setBookMsg('Please read and agree to the policy first.'); return; }
     busy = true; setBookMsg(''); updateForm();
-    var ph = $('cust-phone').value.trim(), nt = $('cust-note').value.trim();
+    var ph = $('cust-phone').value.trim(), nt = $('cust-note').value.trim(), em = $('cust-email').value.trim();
+    if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ setBookMsg('That email does not look right. Fix it, or leave it blank.'); return; }
     var selB0 = barbers.filter(function(x){ return x.id === selBarber; })[0];
     var taken = false, failed = null, made = {barberId:selBarber, date:selDate, start:selTime, name:nm, disclaimer: selB0 ? selB0.disclaimer || '' : ''};
     try {
@@ -1447,6 +1488,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         else failed = 'The booking did not go through. Check your connection and try again.';
       } else {
         made.id = r.data; made.phone = ph;
+        if (em){ try { await sb.rpc('set_booking_email', {p_id:String(made.id), p_name:made.name, p_email:em}); } catch(e){} }
         try { var rc = await sb.rpc('booking_code', {p_id:String(made.id), p_name:made.name}); if (!rc.error && rc.data){ made.code = rc.data; saveCode(made.name, made.code); } } catch(e){}
         confirmed = made; payWho = null; cancelArmed = false; cancelErr = false; }
     } catch(e){ failed = 'The booking did not go through. Check your connection and try again.'; }
@@ -2129,14 +2171,14 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     } catch(e){ session = null; }
     await loadStaff();
     await refresh(true);
-    loadPay(); loadTheme(true); watchTheme();
+    loadPay(); loadTheme(true).then(moveOldPhoto); watchTheme();
     applyTab();
     sb.auth.onAuthStateChange(function(ev, s2){
       setTimeout(async function(){
         var before = session && session.user ? session.user.id : null;
         session = s2 || null;
         var after = session && session.user ? session.user.id : null;
-        if (before !== after){ await loadStaff(); await refresh(true); renderAuth(); if (tab === 'barber') renderDesk(); }
+        if (before !== after){ await loadStaff(); await refresh(true); renderAuth(); if (tab === 'barber') renderDesk(); moveOldPhoto(); }
       }, 0);
     });
     var tick = 0;
