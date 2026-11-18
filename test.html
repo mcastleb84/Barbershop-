@@ -410,6 +410,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     </div>
     <div id="own-look" class="lk"></div>
     <div class="addrow" style="margin-top:12px"><button class="btn small" type="button" id="own-save-colors">Save colors</button><button class="btn ghost small" type="button" id="own-undo-colors">Undo</button></div>
+    <p class="hint" style="margin-top:8px">Changes save on their own and show for customers right away. App version 3</p>
     <p class="msg" id="own-colors-msg" role="status"></p>
     <p class="okmsg" id="own-colors-ok" role="status"></p>
   </section>
@@ -866,7 +867,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     renderContact(); if (confirmed) updateForm(); renderProfile(); if (!profDirty) fillProfileFields(); renderPayPanel();
   }
   /* ---------- owner settings drawer ---------- */
-  var ownReturn = null, themeSaved = null, themeDraft = null;
+  var ownReturn = null, themeSaved = null, themeDraft = null, themeAtOpen = null;
   try { themeSaved = JSON.parse(localStorage.getItem('bs.shoptheme') || 'null'); } catch(e){ themeSaved = null; }
   function setOwner(open, focusId){
     var el = $('own-side'); if (!el) return;
@@ -875,7 +876,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       if (!$('own-shop').contains($('shop-edit'))) $('own-shop').appendChild($('shop-edit'));
       $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone; $('se-window').value = String(BOOK_MONTHS);
       $('shop-edit').hidden = false;
-      ownReturn = document.activeElement; themeDraft = themeSaved; renderOwnSwatches(); initOwnLook();
+      ownReturn = document.activeElement; themeDraft = themeSaved; themeAtOpen = themeSaved; renderOwnSwatches(); initOwnLook();
       $('own-colors-msg').textContent = ''; $('own-colors-ok').textContent = '';
       $('own-scrim').hidden = false; el.classList.add('open'); $('owner-open').setAttribute('aria-expanded', 'true');
       setTimeout(function(){ var f = $(focusId || 'own-close'); if (f) f.focus(); }, 60);
@@ -895,7 +896,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         var t = Object.assign({id:'classic'}, themeDraft || {}, patch);
         Object.keys(patch).forEach(function(k){ if (patch[k] === '' || patch[k] === false) delete t[k]; });
         themeDraft = t; bsRender(themeDraft);
-        if ('photo' in patch || 'fade' in patch) autoSavePhoto(); else $('own-colors-ok').textContent = 'Preview. Tap Save colors to keep it.';
+        autoSaveLook();
         return true;
       },
       bgNow: function(){ return bsColor.hexOk(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()); },
@@ -911,13 +912,13 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       var b = document.createElement('button'); b.type = 'button'; b.className = 'swatch'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(cur === id));
       b.innerHTML = '<span class="sw"><i style="background:' + bg + ';flex:2"></i><i style="background:' + ac + '"></i><i style="background:' + bl + '"></i></span>';
       b.append(t.name);
-      b.addEventListener('click', function(){ themeDraft = Object.assign({}, lookExtras(themeDraft), {id:id}); if (id === 'classic' && !Object.keys(lookExtras(themeDraft)).length) themeDraft = null; bsRender(themeDraft); $('own-colors-ok').textContent = 'Preview: ' + t.name + '. Tap Save colors to keep it.'; renderOwnSwatches(); });
+      b.addEventListener('click', function(){ themeDraft = Object.assign({}, lookExtras(themeDraft), {id:id}); if (id === 'classic' && !Object.keys(lookExtras(themeDraft)).length) themeDraft = null; bsRender(themeDraft); renderOwnSwatches(); autoSaveLook(); });
       box.appendChild(b);
     });
     if (themeDraft && themeDraft.id === 'custom'){ $('own-bg').value = themeDraft.bg; $('own-accent').value = themeDraft.accent; }
   }
   function lookExtras(t){ var x = bsCleanExtras(t); delete x.bg; return x; }
-  function previewCustom(){ themeDraft = Object.assign({}, lookExtras(themeDraft), {id:'custom', bg:$('own-bg').value, accent:$('own-accent').value, blue:$('own-accent').value}); bsRender(themeDraft); $('own-colors-ok').textContent = 'Preview: your colors. Tap Save colors to keep them.'; renderOwnSwatches(); }
+  function previewCustom(){ themeDraft = Object.assign({}, lookExtras(themeDraft), {id:'custom', bg:$('own-bg').value, accent:$('own-accent').value, blue:$('own-accent').value}); bsRender(themeDraft); renderOwnSwatches(); autoSaveLook(); }
   async function saveTheme(){
     var msg = $('own-colors-msg'); msg.textContent = ''; $('own-colors-ok').textContent = '';
     if (!sb || !isAdmin){ msg.textContent = 'Sign in as the owner to change colors.'; return; }
@@ -926,29 +927,30 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       var r = await sb.from('shop_settings').update({theme: themeDraft ? JSON.stringify(themeDraft) : ''}).eq('id', 1).select('id');
       if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
       themeSaved = themeDraft; try { if (themeSaved) localStorage.setItem('bs.shoptheme', JSON.stringify(themeSaved)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
+      if (clearMyLook()) bsRender(themeDraft);
       $('own-colors-ok').textContent = 'Saved. All your customers now see these colors.';
     } catch(e){ msg.textContent = /column/i.test((e && e.message) || '') ? 'To save colors, run shop-setup.sql in Supabase first.' : 'Could not save. Sign in again and retry.'; }
     $('own-save-colors').disabled = false;
   }
-  /* A photo added or removed in the staff app is saved right away, so customers see it without tapping Save colors.
-     Only the photo and its color fade are saved here; other color previews still wait for Save colors. */
-  var photoTimer = null;
-  function autoSavePhoto(){
-    clearTimeout(photoTimer);
-    $('own-colors-ok').textContent = 'Saving photo…'; $('own-colors-msg').textContent = '';
-    photoTimer = setTimeout(async function(){
-      if (!sb || !isAdmin){ $('own-colors-ok').textContent = ''; $('own-colors-msg').textContent = 'Sign in as the owner to save the photo.'; return; }
-      var d = themeDraft || {}, next = Object.assign({id:'classic'}, themeSaved || {});
-      if (d.photo){ next.photo = d.photo; if (d.fade != null) next.fade = d.fade; else delete next.fade; } else { delete next.photo; delete next.fade; }
-      if (next.id === 'classic' && !Object.keys(lookExtras(next)).length) next = null;
+  /* Every change in Owner settings (colors, pattern, text style, photo) is saved right away,
+     so the Staff app and the customer app always show the same shop look. */
+  var lookTimer = null;
+  function clearMyLook(){ try { if (Object.keys(bsMyLook()).length){ bsSaveMyLook({}); return true; } } catch(e){} return false; }
+  function autoSaveLook(){
+    clearTimeout(lookTimer);
+    $('own-colors-ok').textContent = 'Saving…'; $('own-colors-msg').textContent = '';
+    lookTimer = setTimeout(async function(){
+      if (!sb || !isAdmin){ $('own-colors-ok').textContent = ''; $('own-colors-msg').textContent = 'Sign in as the owner to save.'; return; }
+      var next = themeDraft;
+      if (next && next.id === 'classic' && !Object.keys(lookExtras(next)).length) next = null;
       try {
         var r = await sb.from('shop_settings').update({theme: next ? JSON.stringify(next) : ''}).eq('id', 1).select('id');
         if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
         themeSaved = next; try { if (next) localStorage.setItem('bs.shoptheme', JSON.stringify(next)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
-        // A photo set earlier under Colors on this phone would cover the shop photo here, so clear it.
-        var mine = bsMyLook(); if (mine.photo){ delete mine.photo; delete mine.fade; bsSaveMyLook(mine); bsRender(themeDraft); }
-        $('own-colors-ok').textContent = d.photo ? 'Photo saved. Customers see it now.' : 'Photo removed for customers.';
-      } catch(e){ $('own-colors-ok').textContent = ''; $('own-colors-msg').textContent = 'Could not save the photo. Sign in again and retry.'; }
+        // Colors picked earlier under "Colors" on this phone would cover the shop look in both apps here, so clear them.
+        if (clearMyLook()) bsRender(themeDraft);
+        $('own-colors-ok').textContent = 'Saved. Customers see this now.';
+      } catch(e){ $('own-colors-ok').textContent = ''; $('own-colors-msg').textContent = /column/i.test((e && e.message) || '') ? 'To save colors, run shop-setup.sql in Supabase first.' : 'Could not save. Sign in again and retry.'; }
     }, 700);
   }
   /* Keep the customer app up to date: listen for shop changes live, and re-check when the app is opened again. */
@@ -1912,7 +1914,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
   $('own-bg').addEventListener('input', previewCustom);
   $('own-accent').addEventListener('input', previewCustom);
   $('own-save-colors').addEventListener('click', saveTheme);
-  $('own-undo-colors').addEventListener('click', function(){ themeDraft = themeSaved; bsRender(themeSaved); renderOwnSwatches(); if (ownLook) ownLook.draw(); $('own-colors-ok').textContent = 'Back to your saved colors.'; });
+  $('own-undo-colors').addEventListener('click', function(){ themeDraft = themeAtOpen; bsRender(themeDraft); renderOwnSwatches(); if (ownLook) ownLook.draw(); autoSaveLook(); });
   $('pay-who').addEventListener('change', function(e){ payWho = e.target.value; renderPayPanel(); });
   $('pay-quick').addEventListener('click', function(){ goPay(); });
   $('pay-close').addEventListener('click', function(){ setPay(false); });
