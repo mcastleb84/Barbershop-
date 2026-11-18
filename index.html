@@ -945,6 +945,8 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         var r = await sb.from('shop_settings').update({theme: next ? JSON.stringify(next) : ''}).eq('id', 1).select('id');
         if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
         themeSaved = next; try { if (next) localStorage.setItem('bs.shoptheme', JSON.stringify(next)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
+        // A photo set earlier under Colors on this phone would cover the shop photo here, so clear it.
+        var mine = bsMyLook(); if (mine.photo){ delete mine.photo; delete mine.fade; bsSaveMyLook(mine); bsRender(themeDraft); }
         $('own-colors-ok').textContent = d.photo ? 'Photo saved. Customers see it now.' : 'Photo removed for customers.';
       } catch(e){ $('own-colors-ok').textContent = ''; $('own-colors-msg').textContent = 'Could not save the photo. Sign in again and retry.'; }
     }, 700);
@@ -1941,7 +1943,11 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       if (myReturn && myReturn.focus) myReturn.focus();
     }
   }
-  $('my-open').addEventListener('click', function(){ setMy(!$('my-side').classList.contains('open')); });
+  $('my-open').addEventListener('click', function(){
+    // In the Staff app the owner's colors and photo are the shop's, so send them to Owner settings where changes reach customers.
+    if (window.BS_APP === 'staff' && isAdmin){ setMy(false); openOwner(); setTimeout(function(){ var l = $('own-look'); if (l) l.scrollIntoView({behavior:'smooth', block:'start'}); }, 120); return; }
+    setMy(!$('my-side').classList.contains('open'));
+  });
   $('my-close').addEventListener('click', function(){ setMy(false); });
   $('my-scrim').addEventListener('click', function(){ setMy(false); });
   $('my-reset').addEventListener('click', function(){ bsSaveMyLook({}); bsRender(); if (myLook) myLook.draw(); });
