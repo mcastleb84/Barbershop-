@@ -243,7 +243,14 @@ textarea.input{resize:vertical;font:inherit}
 .deskrow:first-child{border-top:0}
 .deskrow .d{font-weight:600}
 .deskrow .d small{display:block;font-weight:400;color:var(--muted);font-size:12px}
-.chk{display:flex;align-items:center;gap:6px;font-size:14px}
+.chk{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+.chk input{width:24px;height:24px;accent-color:var(--ok);flex:none}
+.deskrow.off .d{color:var(--muted)}
+.deskrow.off .chk{color:var(--muted)}
+.deskrow.found{background:color-mix(in srgb, var(--accent) 14%, transparent);border-radius:10px;box-shadow:0 0 0 2px var(--accent);transition:background .3s}
+.dayfind{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 4px}
+.dayfind label{font-weight:600;font-size:14px;width:100%}
+.dayfind .input{max-width:200px;min-height:44px}
 .sel{padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);font-family:var(--font-mono);font-size:13px}
 .rowmsg{grid-column:1/-1;margin:0;font-size:13px;color:var(--warn)}
 .saved{font-size:12px;color:var(--ok);font-family:var(--font-mono)}
@@ -697,7 +704,14 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       </div>
       <div class="panel" id="desk-days" hidden>
         <h2 class="step-h">Days available for clients</h2>
-        <p class="hint" style="margin-bottom:6px">Pick a window inside shop hours for each day, then save that day.</p>
+        <p class="hint" style="margin-bottom:6px">Every day the shop is open is checked as available. Uncheck the days you are off. To change a day's hours, pick new times and tap Save hours.</p>
+        <div class="dayfind">
+          <label for="day-find">Find a date</label>
+          <input class="input" type="date" id="day-find">
+          <button class="btn ghost small" type="button" id="day-today">Today</button>
+        </div>
+        <p class="hint" id="day-sum" style="margin:2px 0 6px"></p>
+        <p class="msg" id="day-find-msg" role="status"></p>
         <div class="daytabs" role="tablist" aria-label="Which days to show">
           <button type="button" role="tab" class="daytab" data-dayview="today" aria-selected="true">Today</button>
           <button type="button" role="tab" class="daytab" data-dayview="tomorrow" aria-selected="false">Tomorrow</button>
@@ -1432,37 +1446,100 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     list.forEach(function(k){
       var sw = shopWindow(k);
       if (!sw){
-        box.append(h('div',{class:'deskrow'}, h('div',{class:'d'}, fmtDay(k)), h('div',{class:'closedtxt'},'Shop closed')));
+        box.append(h('div',{class:'deskrow off', 'data-day': k}, h('div',{class:'d'}, fmtDay(k)), h('div',{class:'closedtxt'},'Shop closed')));
         return;
       }
       var d = getDraft(k), saved = !!avail[deskBarber+'_'+k] && !d.dirty;
-      var row = h('div',{class:'deskrow'},
+      var row = h('div',{class:'deskrow' + (d.on ? '' : ' off'), 'data-day': k},
         h('div',{class:'d'}, fmtDay(k), h('small',{}, 'Shop '+fmtMin(sw[0])+' – '+fmtMin(sw[1]))),
-        h('label',{class:'chk'}, h('input',{type:'checkbox', checked:d.on, disabled:!canEdit, onchange:function(e){ d.on = e.target.checked; d.dirty = true; renderDeskRows(); }}), 'Available'));
+        h('label',{class:'chk'}, h('input',{type:'checkbox', checked:d.on, disabled:!canEdit || d.saving, onchange:function(e){ toggleDay(k, e.target.checked); }}), d.on ? 'Available' : 'Day off'));
       if (d.on){
         row.append(
           timeSelect(d.start, sw[0], sw[1]-SLOT, function(e){ d.start = +e.target.value; d.dirty = true; renderDeskRows(); }, 'Start time, '+fmtDay(k)),
           timeSelect(d.end, sw[0]+SLOT, sw[1], function(e){ d.end = +e.target.value; d.dirty = true; renderDeskRows(); }, 'End time, '+fmtDay(k)));
         Array.prototype.forEach.call(row.querySelectorAll('select'), function(s){ s.disabled = !canEdit; });
-      } else row.append(h('span',{class:'hint'},'Not working'), h('span'));
-      var act = h('div',{style:'grid-column:1/-1;display:flex;gap:10px;align-items:center'},
-        h('button',{class:'btn small', type:'button', disabled: !canEdit || !d.dirty || d.saving, onclick:function(){ saveDay(k); }}, d.saving ? 'Saving…' : 'Save day'),
-        saved ? h('span',{class:'saved'},'Saved') : null);
-      row.append(act);
+      } else row.append(h('span',{class:'hint'},'Not taking bookings'), h('span'));
+      if (d.on && (d.dirty || d.saving)) row.append(h('div',{style:'grid-column:1/-1;display:flex;gap:10px;align-items:center'},
+        h('button',{class:'btn small', type:'button', disabled: !canEdit || d.saving, onclick:function(){ saveDay(k); }}, d.saving ? 'Saving…' : 'Save hours')));
+      else if (saved || d.saving) row.append(h('span',{class:'saved', style:'grid-column:1/-1'}, d.saving ? 'Saving…' : 'Saved'));
       if (d.err) row.append(h('p',{class:'rowmsg'}, d.err));
       box.append(row);
     });
     if (dayView === 'later' && all.length - 1 > deskShow)
       box.append(h('button',{class:'btn ghost small', type:'button', style:'margin-top:10px', onclick:function(){ deskShow += 28; renderDeskRows(); }}, 'Show 4 more weeks'));
+    renderDaySum(all);
+    autoFill();
+  }
+  /* ---------- every open day starts checked; unchecked days are remembered in days_off ---------- */
+  var dayOff = {}, offReady = false, fillDone = {}, fillBusy = false;
+  function renderDaySum(all){
+    var fi = $('day-find'); fi.min = all[0]; fi.max = all[all.length - 1];
+    if (!deskBarber){ $('day-sum').textContent = ''; return; }
+    var on = 0, off = 0;
+    all.forEach(function(k){ if (!shopWindow(k)) return; if (avail[deskBarber + '_' + k]) on++; else off++; });
+    $('day-sum').textContent = barberName(deskBarber) + ': ' + on + ' day' + (on === 1 ? '' : 's') + ' available, ' + off + ' day' + (off === 1 ? '' : 's') + ' off, through ' + fmtDay(all[all.length - 1]) + '.';
+    if (!offReady && staff) $('day-sum').textContent += ' To keep every open day checked automatically, run days-off-setup.sql in Supabase.';
+  }
+  async function autoFill(){
+    if (!offReady || !canEdit || !deskBarber || fillBusy || !sb) return;
+    var bid = deskBarber, all = days(), sig = bid + '|' + all[0] + '|' + all.length;
+    if (fillDone[sig]) return;
+    var rows = all.filter(function(k){ return shopWindow(k) && !avail[bid + '_' + k] && !dayOff[bid + '_' + k]; })
+      .map(function(k){ var sw = shopWindow(k); return {barber_id: bid, day: k, start_min: sw[0], end_min: sw[1]}; });
+    fillDone[sig] = true;
+    if (!rows.length) return;
+    fillBusy = true;
+    try { var r = await sb.from('availability').upsert(rows, {onConflict: 'barber_id,day'}).select('day'); if (r.error) throw r.error; } catch(e){ fillDone[sig] = false; }
+    fillBusy = false;
+    await refresh(true);
+  }
+  async function toggleDay(k, on){
+    var bid = deskBarber, id = bid + '_' + k, d = getDraft(k), sw = shopWindow(k);
+    if (!on){
+      var n = staffBookings.filter(function(b){ return String(b.barber_id) === String(bid) && b.day === k; }).length;
+      if (n){ d.err = 'You have ' + n + ' appointment' + (n > 1 ? 's' : '') + ' this day. Cancel or move ' + (n > 1 ? 'them' : 'it') + ' in Appointments first.'; renderDeskRows(); return; }
+    }
+    d.on = on; d.saving = true; d.err = null; renderDeskRows();
+    try {
+      var r;
+      if (on){
+        var st = d.dirty ? d.start : sw[0], en = d.dirty ? d.end : sw[1];
+        r = await sb.from('availability').upsert({barber_id: bid, day: k, start_min: st, end_min: en}, {onConflict: 'barber_id,day'}).select();
+        if (r.error) throw r.error;
+        avail[id] = {start: st, end: en}; delete dayOff[id];
+        if (offReady) await sb.from('days_off').delete().eq('barber_id', String(bid)).eq('day', k);
+      } else {
+        r = await sb.from('availability').delete().eq('barber_id', bid).eq('day', k).select();
+        if (r.error) throw r.error;
+        delete avail[id]; dayOff[id] = true;
+        if (offReady) await sb.from('days_off').upsert({barber_id: String(bid), day: k}, {onConflict: 'barber_id,day'});
+      }
+      d.dirty = false;
+    } catch(e){ d.on = !on; d.err = 'Could not save. Sign in again and retry.'; }
+    d.saving = false;
+    await refresh(true);
+  }
+  function findDay(k){
+    var msg = $('day-find-msg'); msg.textContent = '';
+    if (!k) return;
+    var all = days(), i = all.indexOf(k);
+    if (i < 0){ msg.textContent = k < all[0] ? 'That date has passed.' : 'Customers can only book through ' + fmtDay(all[all.length - 1]) + '. The owner can change this in Owner settings.'; return; }
+    if (i === 0) dayView = 'today'; else if (i === 1) dayView = 'tomorrow';
+    else { dayView = 'later'; if (i > deskShow) deskShow = Math.ceil(i / 28) * 28; }
+    renderDeskRows();
+    var row = document.querySelector('#deskrows [data-day="' + k + '"]') || null;
+    if (!row){ msg.textContent = fmtDay(k) + ': the shop is closed that day.'; var cl = Array.prototype.filter.call(document.querySelectorAll('#deskrows .deskrow'), function(x){ return x.textContent.indexOf(fmtDay(k)) === 0; })[0]; if (cl) row = cl; }
+    if (row){ row.classList.add('found'); row.scrollIntoView({behavior: 'smooth', block: 'center'}); setTimeout(function(){ row.classList.remove('found'); }, 2600); }
   }
   var deskShow = 28, repArmed = false, repMsg = '';
   function repeatBox(all){
     var pattern = {}, n = 0;
     all.slice(0, 7).forEach(function(k){ var a = avail[deskBarber + '_' + k]; if (a){ pattern[parseKey(k).getDay()] = a; n++; } });
-    var targets = all.slice(7).filter(function(k){ var sw = shopWindow(k), a = pattern[parseKey(k).getDay()]; return sw && a && !avail[deskBarber + '_' + k]; });
+    var targets = all.slice(7).filter(function(k){ var sw = shopWindow(k), a = pattern[parseKey(k).getDay()], cur = avail[deskBarber + '_' + k];
+      return sw && a && !dayOff[deskBarber + '_' + k] && (!cur || (cur.start === sw[0] && cur.end === sw[1] && (a.start !== cur.start || a.end !== cur.end))); });
     var wrap = h('div',{class:'notice', style:'margin:0 0 12px'},
       h('strong',{}, 'Repeat weekly'), h('br'),
-      n ? 'Copy the hours saved for the next 7 days to every matching weekday through ' + fmtDay(all[all.length - 1]) + '. Days you already set are not changed.'
+      n ? 'Copy your hours from the next 7 days to the same weekday every week through ' + fmtDay(all[all.length - 1]) + '. Days off and days you already changed are not touched.'
         : 'Save your hours for the next 7 days first, then copy them to every week customers can book.');
     if (n) wrap.append(h('div',{style:'margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap'},
       h('button',{class:'btn small', type:'button', disabled: !targets.length, onclick:function(){ repeatWeekly(targets, pattern); }},
@@ -1835,6 +1912,8 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
   $('ap-day').addEventListener('change', function(){ fillApptTimes(false); });
   $('ap-save').addEventListener('click', saveAppt);
   document.querySelectorAll('[data-dayview]').forEach(function(b){ b.addEventListener('click', function(){ dayView = b.dataset.dayview; renderDeskRows(); }); });
+  $('day-find').addEventListener('change', function(e){ findDay(e.target.value); });
+  $('day-today').addEventListener('click', function(){ $('day-find').value = ''; $('day-find-msg').textContent = ''; dayView = 'today'; renderDeskRows(); $('desk-days').scrollIntoView({behavior: 'smooth', block: 'start'}); });
   $('cancel-name').addEventListener('keydown', function(e){ if (e.key === 'Enter') findBooking(); });
   $('act-filter').addEventListener('change', function(e){ watchBarber = e.target.value; lsSet('bs_filter', watchBarber); renderActivity(); });
   $('desk-barber').addEventListener('change', function(e){ deskBarber = e.target.value; profDirty = false; fillProfileFields(); renderDeskNotes(); renderDeskRows(); renderDeskBookings(); });
@@ -1925,7 +2004,9 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         q.push(sb.from('activity').select('id,kind,actor,barber_id,day,start_min,customer_name,customer_phone,note,created_at').order('created_at', {ascending:false}).limit(60));
       }
       var wq = sb.from('shop_settings').select('booking_months').eq('id', 1).maybeSingle();
-      var r = await Promise.all(q), wr = await wq;
+      var oq = staff ? sb.from('days_off').select('barber_id,day').gte('day', today).limit(5000) : null;
+      var r = await Promise.all(q), wr = await wq, orr = oq ? await oq : null;
+      if (orr){ var offWas = JSON.stringify(dayOff); offReady = !orr.error; dayOff = {}; (orr.data || []).forEach(function(x){ dayOff[x.barber_id + '_' + x.day] = true; }); if (JSON.stringify(dayOff) !== offWas) force = true; }
       for (var i = 0; i < r.length; i++) if (r[i].error) throw r[i].error;
       if (!wr.error && wr.data && wr.data.booking_months != null && +wr.data.booking_months !== BOOK_MONTHS){ BOOK_MONTHS = +wr.data.booking_months; force = true; }
       var sig = JSON.stringify(r.map(function(x){ return x.data; }));
@@ -2208,7 +2289,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     {target:'#desk-activity', title:'Recent activity', text:'New bookings and cancellations show up here. Keep the page open to get alerts.', before:open('desk-activity')},
     {target:'#desk-profile', title:'Your profile', text:'Your specialties and a short bio. Customers see these when they tap your name.', before:open('desk-profile')},
     {target:'#desk-notes', title:'Notes for customers', text:'Going on vacation or leaving early? Post a note and customers will see it when booking.', before:open('desk-notes')},
-    {target:'#desk-days', title:'Your hours', text:'Turn days on or off and set your hours, then tap Save day. Use the tabs to see Today, Tomorrow or the days after. Repeat weekly copies one week of hours ahead.', before:open('desk-days')},
+    {target:'#desk-days', title:'Your hours', text:'Every open day is checked. Uncheck days you are off, change hours and tap Save hours, or use Find a date to jump to any day.', before:open('desk-days')},
     {target:'#owner-open', title:'Owner settings', text:'Owners only: change the shop name, address, phone and the app colors. Changes show for every customer.'},
     {target:'#side-open', title:'Your account', text:'Log out here when you are done.'},
     {title:'You are all set', text:'Tap a section title to open it. Opening one folds the others away. Replay this tour anytime with How it works.', before:open('desk-bookings')}
