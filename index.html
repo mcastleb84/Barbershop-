@@ -535,11 +535,15 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       </div>
       <div class="panel" id="cancel-panel">
         <h2 class="step-h">Cancel an appointment</h2>
-        <p class="hint" style="margin-bottom:10px">Enter the name you booked under to see your upcoming appointments.</p>
+        <p class="hint" style="margin-bottom:10px">Enter the name you booked under, plus the phone number you gave or the cancel code from your confirmation.</p>
         <div class="form">
           <div class="field" style="max-width:300px">
             <label for="cancel-name">Name</label>
             <input class="input" id="cancel-name" type="text" maxlength="60" autocomplete="name">
+          </div>
+          <div class="field" style="max-width:300px">
+            <label for="cancel-secret">Phone number or cancel code</label>
+            <input class="input" id="cancel-secret" type="text" maxlength="30" autocomplete="off" autocapitalize="characters" placeholder="(555) 555-0123 or 4F7K2C">
           </div>
           <button class="btn ghost small" id="find-btn" type="button">Find my appointments</button>
           <p class="msg" id="cancel-msg" role="status"></p>
@@ -1172,31 +1176,34 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
   }
 
   /* ---------- cancellation ---------- */
-  var cancelArmed = false, cancelErr = false, foundList = [], foundArmed = {}, foundName = '';
+  var cancelArmed = false, cancelErr = false, foundList = [], foundArmed = {}, foundName = ''; var foundSecret = '';
   function hoursUntil(date, start){
     var d = parseKey(date);
     return (new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, start).getTime() - Date.now()) / 3600000;
   }
-  async function cancelMine(id, name){
+  function saveCode(name, code){ try { localStorage.setItem('bs.mycode', JSON.stringify({name:name, code:code})); } catch(e){} }
+  function savedCode(){ try { return JSON.parse(localStorage.getItem('bs.mycode') || 'null'); } catch(e){ return null; } }
+  async function cancelMine(id, name, secret){
     try {
-      var r = await sb.rpc('cancel_booking', {p_id:id, p_name:name});
+      var r = await sb.rpc('cancel_my_booking', {p_id:String(id), p_name:name, p_secret:secret || ''});
       if (r.error || !r.data) return false;
     } catch(e){ return false; }
     await refresh(true);
     return true;
   }
   async function findBooking(){
-    var nm = $('cancel-name').value.trim();
+    var nm = $('cancel-name').value.trim(), sec = $('cancel-secret').value.trim();
     var msg = $('cancel-msg'); msg.textContent = ''; $('cancel-ok').textContent = '';
-    foundList = []; foundArmed = {}; foundName = nm;
+    foundList = []; foundArmed = {}; foundName = nm; foundSecret = sec;
     if (!nm){ msg.textContent = 'Enter the name you booked under.'; renderFound(); return; }
+    if (!sec){ msg.textContent = 'Enter the phone number you booked with, or your cancel code.'; renderFound(); return; }
     if (!sb){ msg.textContent = 'Cancelling is not available until the site is connected.'; renderFound(); return; }
     try {
-      var r = await sb.rpc('find_bookings', {p_name:nm});
+      var r = await sb.rpc('find_my_bookings', {p_name:nm, p_secret:sec});
       if (r.error) throw r.error;
       foundList = (r.data || []).map(function(x){ return {id:x.id, barberId:x.barber_id, date:x.day, start:x.start_min}; });
     } catch(e){ msg.textContent = 'Could not look up appointments. Check your connection and try again.'; renderFound(); return; }
-    if (!foundList.length) msg.textContent = 'No upcoming appointments found under that name.';
+    if (!foundList.length) msg.textContent = 'No upcoming appointments match that name and phone number or code. Check them, or call the shop.';
     renderFound();
   }
   function renderFound(){
@@ -1208,7 +1215,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         soon ? h('div',{class:'hint',style:'margin-top:4px'}, 'Less than 24 hours away, which is later than our cancellation policy asks. Please also call the shop.') : null,
         h('button',{class:'btn small',type:'button',style:'margin-top:8px',onclick:async function(){
           if (!foundArmed[b.id]){ foundArmed[b.id] = true; renderFound(); return; }
-          var ok = await cancelMine(b.id, foundName);
+          var ok = await cancelMine(b.id, foundName, foundSecret);
           delete foundArmed[b.id];
           if (ok){ foundList = foundList.filter(function(x){ return x.id !== b.id; }); $('cancel-ok').textContent = 'Your appointment was cancelled.'; $('cancel-msg').textContent = ''; }
           else $('cancel-msg').textContent = 'Could not cancel. Please call the shop.';
@@ -1273,6 +1280,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         h('h3',{},'You are booked'),
         h('p',{}, confirmed.name+', see you '+fmtDay(confirmed.date)+' at '+fmtMin(confirmed.start)+'.'),
         h('p',{class:'hint'}, 'Barber: '+barberName(confirmed.barberId)),
+        confirmed.code ? h('p',{class:'notice', style:'margin:6px 0'}, 'Your cancel code: ', h('strong',{style:'font-family:var(--font-mono);font-size:16px;letter-spacing:.1em'}, confirmed.code), h('br'), 'Screenshot or save it. To cancel later you need your name plus this code' + (confirmed.phone ? ' or your phone number.' : '.')) : null,
         confirmed.disclaimer ? h('p',{class:'hint', style:'white-space:pre-wrap'}, 'You agreed to this policy: ' + confirmed.disclaimer) : null,
         cancelArmed && hoursUntil(confirmed.date, confirmed.start) < 24
           ? h('p',{class:'hint'}, 'This is less than 24 hours before your appointment, which is later than our cancellation policy asks. Please also call the shop.') : null,
@@ -1283,7 +1291,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
           }},'Book another'),
           h('button',{class:'btn ghost small',type:'button',onclick:async function(){
             if (!cancelArmed){ cancelArmed = true; cancelErr = false; updateForm(); return; }
-            var ok = await cancelMine(confirmed.id, confirmed.name);
+            var ok = await cancelMine(confirmed.id, confirmed.name, confirmed.code || confirmed.phone || '');
             cancelArmed = false;
             if (ok){ confirmed = null; selTime = null; cancelErr = false; setBookMsg('Your appointment was cancelled.'); renderBook(); }
             else { cancelErr = true; updateForm(); }
@@ -1323,7 +1331,10 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         else if (m.indexOf('in_past') >= 0) failed = 'That time has already passed. Pick a later one.';
         else if (/barber_unavailable|shop_closed|too_far/.test(m)) failed = 'That time is no longer available. Pick another one.';
         else failed = 'The booking did not go through. Check your connection and try again.';
-      } else { made.id = r.data; confirmed = made; payWho = null; cancelArmed = false; cancelErr = false; }
+      } else {
+        made.id = r.data; made.phone = ph;
+        try { var rc = await sb.rpc('booking_code', {p_id:String(made.id), p_name:made.name}); if (!rc.error && rc.data){ made.code = rc.data; saveCode(made.name, made.code); } } catch(e){}
+        confirmed = made; payWho = null; cancelArmed = false; cancelErr = false; }
     } catch(e){ failed = 'The booking did not go through. Check your connection and try again.'; }
     busy = false;
     await refresh(true);
@@ -1672,6 +1683,8 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
   $('cust-name').addEventListener('input', updateForm);
   $('book-btn').addEventListener('click', confirmBooking);
   $('staff-link').textContent = location.origin + location.pathname.replace(/[^/]*$/, '') + 'desk.html';
+  (function(){ var sc = savedCode(); if (sc){ $('cancel-name').value = $('cancel-name').value || sc.name; $('cancel-secret').value = sc.code; } })();
+  $('cancel-secret').addEventListener('keydown', function(e){ if (e.key==='Enter') findBooking(); });
   $('emp-new').addEventListener('click', function(){ openEmpForm(null); });
   $('emp-cancel').addEventListener('click', closeEmpForm);
   $('emp-save').addEventListener('click', saveEmp);
