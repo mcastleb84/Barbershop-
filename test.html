@@ -305,7 +305,8 @@ textarea.input{resize:vertical;font:inherit}
 #pay-scrim{animation:scrimIn .3s ease both}
 @keyframes scrimIn{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){#pay-side,#pay-side.open{transition:none}#pay-scrim{animation:none}}
-@media (max-width:700px){.banner-in{padding-top:58px}}
+/* leave room above the shop name for the Menu, Back and Refresh buttons (and the iPhone notch) */
+.banner-in{padding-top:calc(env(safe-area-inset-top,0px) + 66px)}
 .notice{background:var(--wash);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:14px;margin:0}
 .whorow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .whorow p{margin:0;overflow-wrap:anywhere}
