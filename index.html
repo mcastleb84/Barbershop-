@@ -187,6 +187,12 @@ textarea.input{resize:vertical;font:inherit}
 .toast{position:fixed;z-index:20;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));margin:0 auto;max-width:440px;padding:12px 14px;background:var(--surface);color:var(--ink);border:1.5px solid var(--accent);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:14px;cursor:pointer}
 .toast strong{display:block;font-family:var(--font-display);font-size:18px;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
 .toast[hidden]{display:none}
+.disc{background:var(--wash);border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.disc-h{margin:0;font-weight:700}
+.disc-t{margin:0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.disc-ok{display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600}
+.disc-ok input{width:20px;height:20px;flex:none}
+.pdisc{margin:14px 0 0;padding:12px 14px;background:var(--wash);border-radius:10px;max-width:62ch;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
 .policy{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
 .done{border:1.5px solid var(--ok);background:var(--ok-bg);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:6px}
 .done h3{margin:0;font-family:var(--font-display);font-size:28px;letter-spacing:.04em;text-transform:uppercase;color:var(--ok)}
@@ -263,6 +269,12 @@ textarea.input{resize:vertical;font:inherit}
 #own-side .shop-edit{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;background:none;border:0;box-shadow:none;max-width:none;text-align:left;color:var(--ink)}
 .subpanel{margin-top:18px;padding-top:16px;border-top:1.5px solid var(--line)}
 .subh{margin:0 0 10px;font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:.04em;text-transform:uppercase}
+.navfabs{position:fixed;z-index:35;top:calc(env(safe-area-inset-top,0px) + 10px);right:max(12px,env(safe-area-inset-right,0px));display:flex;gap:8px}
+.navfabs .menu-fab{position:static}
+.navfabs .menu-fab svg{flex:none}
+.navfabs .spin svg{animation:navspin .7s linear infinite}
+@keyframes navspin{to{transform:rotate(360deg)}}
+@media (max-width:380px){.navfabs .nav-lbl{display:none}.navfabs .menu-fab{padding:9px 11px}}
 .menu-fab{position:fixed;z-index:35;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(12px,env(safe-area-inset-left,0px));display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;border:0;background:var(--surface);color:var(--ink);font-weight:700;font-size:15px;box-shadow:0 4px 16px rgba(0,0,0,.28)}
 .menu-item{display:block;width:100%;text-align:left;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-weight:600;font-size:15px}
 .menu-item:hover{border-color:var(--ink)}
@@ -304,6 +316,10 @@ textarea.input{resize:vertical;font:inherit}
 <body>
 
 <div class="toast" id="toast" role="status" hidden></div>
+<div class="navfabs">
+  <button class="menu-fab" id="nav-back" type="button" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span class="nav-lbl">Back</span></button>
+  <button class="menu-fab" id="nav-refresh" type="button" aria-label="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span class="nav-lbl">Refresh</span></button>
+</div>
 <button class="menu-fab" id="menu-fab" type="button" aria-controls="pay-side" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Menu</button>
 <div class="scrim" id="pay-scrim" hidden></div>
 <aside class="side" id="pay-side" role="dialog" aria-modal="true" aria-labelledby="pay-title">
@@ -312,7 +328,7 @@ textarea.input{resize:vertical;font:inherit}
     <button class="side-close" id="pay-close" type="button" aria-label="Close menu">&times;</button>
   </div>
   <h3 class="ownh" style="margin:0">Pay for your cut</h3>
-  <p class="hint" style="margin:0">Done with your cut? Pay by credit card, Cash App or Venmo. Each button takes you to that site to pay. Paying online is optional; you can also pay at the shop.</p>
+  <p class="hint" style="margin:0">Done with your cut? Pay by credit card, Cash App, Venmo or PayPal. Each button takes you to that site to pay. Paying online is optional; you can also pay at the shop.</p>
   <div class="field" id="pay-who-wrap" hidden>
     <label for="pay-who">Who are you paying?</label>
     <select class="sel" id="pay-who"></select>
@@ -480,6 +496,11 @@ textarea.input{resize:vertical;font:inherit}
               <label for="cust-note">Note for your barber <span class="opt">(optional)</span></label>
               <textarea class="input" id="cust-note" rows="3" maxlength="200" placeholder="The cut you want, or anything your barber should know"></textarea>
             </div>
+            <div class="disc" id="disc-box" hidden>
+              <p class="disc-h" id="disc-h">Before you book</p>
+              <p class="disc-t" id="disc-t"></p>
+              <label class="disc-ok"><input type="checkbox" id="disc-agree"> I have read and agree to this policy</label>
+            </div>
             <p class="summary" id="summary"></p>
             <button class="btn" id="book-btn" type="button" disabled>Book appointment</button>
             <p class="msg" id="book-msg" role="status"></p>
@@ -545,12 +566,21 @@ textarea.input{resize:vertical;font:inherit}
           <label for="desk-barber">Barber</label>
           <select class="sel" id="desk-barber"></select>
         </div>
-        <div id="desk-add" style="margin-top:14px" hidden>
-          <label for="new-barber" class="hint">Add a barber to the shop</label>
-          <div class="addrow" style="margin-top:6px">
-            <input class="input" id="new-barber" type="text" maxlength="40" placeholder="Barber name">
-            <button class="btn small" id="add-barber" type="button">Add barber</button>
+        <div id="desk-add" style="margin-top:18px" hidden>
+          <h3 style="margin:0 0 4px;font-size:16px">Employees</h3>
+          <p class="hint" style="margin:0 0 8px">Add, edit or remove barbers. Add an email to give someone a login for the barber desk.</p>
+          <ul class="bk" id="emp-list"></ul>
+          <button class="btn small" id="emp-new" type="button" style="margin-top:8px">+ Add employee</button>
+          <div class="form" id="emp-form" hidden style="margin:10px 0;padding:14px;border:1.5px solid var(--line);border-radius:10px">
+            <h4 id="emp-form-h" style="margin:0;font-size:15px">Add employee</h4>
+            <div class="field" style="max-width:420px"><label for="emp-name">Name</label><input class="input" id="emp-name" type="text" maxlength="40" placeholder="Barber name" autocomplete="off"></div>
+            <div class="field" style="max-width:420px"><label for="emp-email">Login email (optional)</label><input class="input" id="emp-email" type="email" maxlength="120" placeholder="name@email.com" autocomplete="off" autocapitalize="off"></div>
+            <p class="hint" id="emp-email-help" style="margin:0">No account yet? They sign up with this email and get access automatically.</p>
+            <label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="emp-admin"> Owner access (can change shop settings and employees)</label>
+            <div class="addrow"><button class="btn small" id="emp-save" type="button">Save</button><button class="btn ghost small" id="emp-cancel" type="button">Cancel</button><button class="btn ghost small" id="emp-remove" type="button" hidden>Remove employee</button></div>
+            <p class="msg" id="emp-msg" role="status"></p>
           </div>
+          <p class="okmsg" id="emp-ok" role="status"></p>
           <p class="msg" id="add-msg" role="status"></p>
         </div>
       </div>
@@ -574,6 +604,11 @@ textarea.input{resize:vertical;font:inherit}
           <div class="field" style="max-width:480px">
             <label for="prof-bio">About</label>
             <textarea class="input" id="prof-bio" rows="4" maxlength="300" placeholder="A few sentences about your style and experience"></textarea>
+          </div>
+          <div class="field" style="max-width:480px">
+            <label for="prof-disc">Policy or disclaimer (optional)</label>
+            <textarea class="input" id="prof-disc" rows="4" maxlength="500" placeholder="No-show fee: $20. Late more than 15 minutes counts as a no-show. Deposits are non-refundable."></textarea>
+            <p class="hint" style="margin:0">Customers must tick "I agree" to this before they can book with you.</p>
           </div>
           <div class="field" style="max-width:480px" hidden>
             <label for="prof-card">Your card payment link (optional)</label>
@@ -685,10 +720,14 @@ textarea.input{resize:vertical;font:inherit}
   var selBarber = null, selDate = null, selTime = null, confirmed = null, busy = false;
   var tab = 'book', deskBarber = null, drafts = {}, armed = {};
 
-  var PAY = {cashapp:'', venmo:'', card_link:''};
+  var PAY = {cashapp:'', venmo:'', card_link:'', paypal:''};
+  function cleanPaypal(v){ return String(v || '').trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/^(paypal\.me\/|paypal\.com\/paypalme\/)/i, '').replace(/^@+/, '').replace(/[\/?#].*$/, '').replace(/\s+/g, ''); }
+  function okPaypal(v){ return /^[A-Za-z0-9]{1,20}$/.test(v); }
+  function paypalLink(p){ var n = (p && p.paypal) || PAY.paypal; return n ? 'https://paypal.me/' + encodeURIComponent(n) : 'https://www.paypal.com/myaccount/transfer/homepage/pay'; }
+  function paypalDot(){ return h('span',{class:'paydot', style:'background:#003087', 'aria-hidden':'true'}, 'P'); }
   function cleanTag(v, sym){ return String(v || '').trim().replace(/^https?:\/\/[^/]+\/(u\/)?/i, '').replace(sym === '$' ? /^\$+/ : /^@+/, '').replace(/\s+/g, ''); }
   var BPAY = {};
-  function hasPay(p){ return !!(p && (p.cashapp || p.venmo || p.card_link)); }
+  function hasPay(p){ return !!(p && (p.cashapp || p.venmo || p.card_link || p.paypal)); }
   function cardIcon(){ var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '14'); svg.setAttribute('height', '14'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', '#fff'); svg.setAttribute('stroke-width', '2.2');
     [['rect', {x:'2.5', y:'5.5', width:'19', height:'13', rx:'2'}], ['path', {d:'M2.5 10h19'}]].forEach(function(e){ var n = document.createElementNS(NS, e[0]); for (var k in e[1]) n.setAttribute(k, e[1][k]); svg.appendChild(n); }); return svg; }
   function cleanLink(v){ v = String(v || '').trim(); if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v; return v; }
@@ -699,6 +738,7 @@ textarea.input{resize:vertical;font:inherit}
     if (p.card_link) out.push(h('a',{class:cls, href:p.card_link, target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#1c3d7a', 'aria-hidden':'true'}, cardIcon()), 'Pay by credit card'));
     if (p.cashapp) out.push(h('a',{class:cls, href:'https://cash.app/$' + encodeURIComponent(p.cashapp), target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#00D64F', 'aria-hidden':'true'}, '$'), 'Pay with Cash App'));
     if (p.venmo) out.push(h('a',{class:cls, href:'https://venmo.com/u/' + encodeURIComponent(p.venmo), target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#008CFF', 'aria-hidden':'true'}, 'V'), 'Pay with Venmo'));
+    if (p.paypal || PAY.paypal) out.push(h('a',{class:cls, href:paypalLink(p), target:'_blank', rel:'noopener'}, paypalDot(), 'Pay with PayPal'));
     return out;
   }
   var payWho = null;
@@ -726,9 +766,10 @@ textarea.input{resize:vertical;font:inherit}
       h('a',{class:'btn payopt', href:card, target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#1c3d7a', 'aria-hidden':'true'}, cardIcon()),
         h('span',{class:'paytxt'}, 'Pay by credit card', h('small',{}, p.card_link ? 'Secure checkout. Any credit or debit card works.' : 'Through PayPal. Any credit or debit card works.'))),
       h('a',{class:'btn payopt', href: p.cashapp ? 'https://cash.app/$' + encodeURIComponent(p.cashapp) : 'https://cash.app', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#00D64F', 'aria-hidden':'true'}, '$'), 'Pay with Cash App'),
-      h('a',{class:'btn payopt', href: p.venmo ? 'https://venmo.com/u/' + encodeURIComponent(p.venmo) : 'https://venmo.com', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#008CFF', 'aria-hidden':'true'}, 'V'), 'Pay with Venmo'));
+      h('a',{class:'btn payopt', href: p.venmo ? 'https://venmo.com/u/' + encodeURIComponent(p.venmo) : 'https://venmo.com', target:'_blank', rel:'noopener'}, h('span',{class:'paydot', style:'background:#008CFF', 'aria-hidden':'true'}, 'V'), 'Pay with Venmo'),
+      h('a',{class:'btn payopt', href:paypalLink(p), target:'_blank', rel:'noopener'}, paypalDot(), 'Pay with PayPal'));
     $('pay-empty').hidden = true;
-    $('pay-empty').textContent = isAdmin ? 'No payment options yet. Owner: add your Cash App, Venmo and card link to config.js.' : 'Online payment is not set up yet. You can pay at the shop.';
+    $('pay-empty').textContent = isAdmin ? 'No payment options yet. Owner: add your Cash App, Venmo, PayPal and card link to config.js.' : 'Online payment is not set up yet. You can pay at the shop.';
   }
   var payReturn = null;
   function setPay(open){
@@ -743,7 +784,7 @@ textarea.input{resize:vertical;font:inherit}
   }
   function goPay(id){ if (id) payWho = id; setPay(true); }
   async function loadPay(){
-    if (!sb){ var P0 = CFG.PAYMENTS || {}; PAY = {cashapp: cleanTag(P0.CASHAPP, '$'), venmo: cleanTag(P0.VENMO, '@'), card_link: okLink(cleanLink(P0.CARD_LINK)) ? cleanLink(P0.CARD_LINK) : ''}; renderPayPanel(); return; }
+    if (!sb){ var P0 = CFG.PAYMENTS || {}; PAY = {paypal: okPaypal(cleanPaypal(P0.PAYPAL)) ? cleanPaypal(P0.PAYPAL) : '', cashapp: cleanTag(P0.CASHAPP, '$'), venmo: cleanTag(P0.VENMO, '@'), card_link: okLink(cleanLink(P0.CARD_LINK)) ? cleanLink(P0.CARD_LINK) : ''}; renderPayPanel(); return; }
     async function pick(q1, q2){ var r = await q1(); if (r.error) r = await q2(); return r; }
     try {
       var r = await pick(function(){ return sb.from('shop_settings').select('cashapp,venmo,card_link').eq('id', 1).maybeSingle(); }, function(){ return sb.from('shop_settings').select('cashapp,venmo').eq('id', 1).maybeSingle(); });
@@ -754,8 +795,8 @@ textarea.input{resize:vertical;font:inherit}
       if (!r2.error){ BPAY = {}; (r2.data || []).forEach(function(x){ BPAY[x.id] = {cashapp: x.cashapp || '', venmo: x.venmo || '', card_link: x.card_link || ''}; }); }
     } catch(e){}
     var P = CFG.PAYMENTS || {};
-    var fromCfg = {cashapp: cleanTag(P.CASHAPP, '$'), venmo: cleanTag(P.VENMO, '@'), card_link: okLink(cleanLink(P.CARD_LINK)) ? cleanLink(P.CARD_LINK) : ''};
-    if (hasPay(fromCfg)) PAY = {cashapp: fromCfg.cashapp || PAY.cashapp, venmo: fromCfg.venmo || PAY.venmo, card_link: fromCfg.card_link || PAY.card_link};
+    var fromCfg = {paypal: okPaypal(cleanPaypal(P.PAYPAL)) ? cleanPaypal(P.PAYPAL) : '', cashapp: cleanTag(P.CASHAPP, '$'), venmo: cleanTag(P.VENMO, '@'), card_link: okLink(cleanLink(P.CARD_LINK)) ? cleanLink(P.CARD_LINK) : ''};
+    if (hasPay(fromCfg)) PAY = {cashapp: fromCfg.cashapp || PAY.cashapp, venmo: fromCfg.venmo || PAY.venmo, card_link: fromCfg.card_link || PAY.card_link, paypal: fromCfg.paypal || PAY.paypal || ''};
     renderContact(); if (confirmed) updateForm(); renderProfile(); if (!profDirty) fillProfileFields(); renderPayPanel();
   }
   /* ---------- owner settings drawer ---------- */
@@ -879,7 +920,7 @@ textarea.input{resize:vertical;font:inherit}
       if (pay.cashapp !== PAY.cashapp || pay.venmo !== PAY.venmo || pay.card_link !== PAY.card_link){
         var r2 = await sb.from('shop_settings').update(pay).eq('id', 1).select('id');
         if (r2.error){ msg.textContent = /column/i.test(r2.error.message || '') ? 'Shop info saved. To save payment options, run payment-setup.sql in Supabase first.' : 'Shop info saved, but the payment options did not. Try again.'; renderContact(); $('se-save').disabled = false; return; }
-        PAY = pay;
+        pay.paypal = PAY.paypal; PAY = pay;
       }
       renderContact(); renderPayPanel(); msg.className = 'okmsg'; msg.textContent = 'Saved. Customers will see the new details.';
     } catch(err){ msg.textContent = 'Could not save. Sign in again and retry.'; }
@@ -980,6 +1021,7 @@ textarea.input{resize:vertical;font:inherit}
         h('span',{class:'pav','aria-hidden':'true'}, initial(b.name)),
         h('div',{}, h('h2',{class:'pname'}, b.name), b.specialties ? h('p',{class:'pspec'}, b.specialties) : null)),
       h('p',{class:'pbio'}, b.bio || 'This barber has not added a bio yet.'),
+      b.disclaimer ? h('div',{class:'pdisc'}, h('strong',{}, 'Policy'), h('br'), b.disclaimer) : null,
       hasPay(BPAY[b.id]) ? h('div',{class:'payblock'},
         h('p',{style:'margin:0 0 8px;font-weight:700'}, 'Pay ' + b.name.split(' ')[0]),
         h('button',{class:'btn small', type:'button', onclick:function(){ goPay(b.id); }}, 'Go to payment')) : null,
@@ -1000,6 +1042,7 @@ textarea.input{resize:vertical;font:inherit}
     if (!b || profDirty) return;
     $('prof-spec').value = b.specialties || '';
     $('prof-bio').value = b.bio || '';
+    $('prof-disc').value = b.disclaimer || '';
     var bp = BPAY[b.id] || {};
     $('prof-cashapp').value = bp.cashapp ? '$' + bp.cashapp : '';
     $('prof-card').value = bp.card_link || '';
@@ -1011,6 +1054,12 @@ textarea.input{resize:vertical;font:inherit}
     try {
       var r = await sb.from('barbers').update({specialties:$('prof-spec').value.trim(), bio:$('prof-bio').value.trim()}).eq('id', deskBarber).select('id');
       if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
+      var disc = $('prof-disc').value.trim(), curB = barbers.filter(function(x){ return x.id === deskBarber; })[0];
+      if (!curB || disc !== (curB.disclaimer || '')){
+        var rd = await sb.from('barbers').update({disclaimer:disc}).eq('id', deskBarber).select('id');
+        if (rd.error){ msg.textContent = /column/i.test(rd.error.message || '') ? 'Bio saved. To save your policy, run disclaimer-setup.sql in Supabase first.' : 'Bio saved, but your policy did not. Try again.'; return; }
+        if (curB) curB.disclaimer = disc;
+      }
       var pay = {cashapp: cleanTag($('prof-cashapp').value, '$'), venmo: cleanTag($('prof-venmo').value, '@'), card_link: cleanLink($('prof-card').value)};
       if (!okLink(pay.card_link)){ msg.textContent = 'Bio saved. That card payment link does not look right. Copy the full link from Square, Stripe or PayPal.'; return; }
       if (pay.cashapp && !/^[A-Za-z][A-Za-z0-9_-]{0,19}$/.test(pay.cashapp)){ msg.textContent = 'Bio saved. That $Cashtag does not look right. It starts with a letter, like $MarcusCuts.'; return; }
@@ -1187,6 +1236,7 @@ textarea.input{resize:vertical;font:inherit}
     });
     box.append(g);
   }
+  var discFor = '';
   function updateForm(){
     if (confirmed){
       $('form').hidden = true; $('confirmed').hidden = false;
@@ -1195,6 +1245,7 @@ textarea.input{resize:vertical;font:inherit}
         h('h3',{},'You are booked'),
         h('p',{}, confirmed.name+', see you '+fmtDay(confirmed.date)+' at '+fmtMin(confirmed.start)+'.'),
         h('p',{class:'hint'}, 'Barber: '+barberName(confirmed.barberId)),
+        confirmed.disclaimer ? h('p',{class:'hint', style:'white-space:pre-wrap'}, 'You agreed to this policy: ' + confirmed.disclaimer) : null,
         cancelArmed && hoursUntil(confirmed.date, confirmed.start) < 24
           ? h('p',{class:'hint'}, 'This is less than 24 hours before your appointment, which is later than our cancellation policy asks. Please also call the shop.') : null,
         cancelErr ? h('p',{class:'msg'}, 'Could not cancel. Please call the shop.') : null,
@@ -1212,9 +1263,15 @@ textarea.input{resize:vertical;font:inherit}
       return;
     }
     $('form').hidden = false; $('confirmed').hidden = true;
+    var selB = barbers.filter(function(x){ return x.id === selBarber; })[0], disc = selB && selB.disclaimer ? selB.disclaimer : '';
+    if (discFor !== selBarber + '|' + disc){ discFor = selBarber + '|' + disc; $('disc-agree').checked = false; }
+    $('disc-box').hidden = !disc;
+    if (disc){ $('disc-h').textContent = selB.name + "'s policy"; $('disc-t').textContent = disc; }
+    var agreed = !disc || $('disc-agree').checked;
     var ready = selBarber && selDate && selTime != null;
     $('summary').textContent = ready ? barberName(selBarber)+' · '+fmtDay(selDate)+' · '+fmtMin(selTime) : 'Choose a barber, day and time above.';
-    $('book-btn').disabled = !(ready && $('cust-name').value.trim()) || busy || !sb;
+    $('book-btn').disabled = !(ready && agreed && $('cust-name').value.trim()) || busy || !sb;
+    if (ready && !agreed && $('cust-name').value.trim()) $('summary').textContent += ' · Tick "I agree" to book';
   }
   function renderBook(){ applyProfileMode(); renderBarbers(); renderBnotes(); renderDates(); renderTimes(); updateForm(); renderFound(); renderPayPanel(); }
 
@@ -1222,9 +1279,12 @@ textarea.input{resize:vertical;font:inherit}
   async function confirmBooking(){
     var nm = $('cust-name').value.trim();
     if (!sb || !selBarber || !selDate || selTime == null || !nm || busy) return;
+    var selBg = barbers.filter(function(x){ return x.id === selBarber; })[0];
+    if (selBg && selBg.disclaimer && !$('disc-agree').checked){ setBookMsg('Please read and agree to the policy first.'); return; }
     busy = true; setBookMsg(''); updateForm();
     var ph = $('cust-phone').value.trim(), nt = $('cust-note').value.trim();
-    var taken = false, failed = null, made = {barberId:selBarber, date:selDate, start:selTime, name:nm};
+    var selB0 = barbers.filter(function(x){ return x.id === selBarber; })[0];
+    var taken = false, failed = null, made = {barberId:selBarber, date:selDate, start:selTime, name:nm, disclaimer: selB0 ? selB0.disclaimer || '' : ''};
     try {
       var r = await sb.rpc('book_appointment', {p_barber:made.barberId, p_day:made.date, p_start:made.start, p_name:made.name, p_phone:ph, p_note:nt});
       if (r.error){
@@ -1432,6 +1492,8 @@ textarea.input{resize:vertical;font:inherit}
     $('desk-gate').hidden = !signedIn || !!staff;
     ['desk-top','desk-activity','desk-profile','desk-notes','desk-days','desk-bookings'].forEach(function(id){ $(id).hidden = !staff; });
     $('desk-add').hidden = !isAdmin;
+    var topLabel = document.querySelector('#desk-top .clabel') || document.querySelector('#desk-top .step-h');
+    if (topLabel) topLabel.textContent = isAdmin ? 'Barbers & employees' : 'Choose a barber';
     $('owner-open').hidden = !isAdmin;
     if (!isAdmin) setOwner(false);
   }
@@ -1471,16 +1533,93 @@ textarea.input{resize:vertical;font:inherit}
       await refresh(true);
     } catch(e){ msg.textContent = 'Could not post the note. Sign in again and retry.'; }
   }
-  async function addBarber(){
-    var nm = $('new-barber').value.trim(), msg = $('add-msg');
-    msg.textContent = '';
-    if (!nm || !sb || !isAdmin) return;
+  /* ---------- employees (owner only) ---------- */
+  var employees = [], empEditing = null, empArmed = false, empLoaded = false;
+  function empErr(e){
+    var m = (e && e.message) || '';
+    if (/function|schema cache|does not exist/i.test(m)) return 'To manage employees, run employees-setup.sql in Supabase first.';
+    return m || 'Something went wrong. Sign in again and retry.';
+  }
+  async function loadEmployees(){
+    if (!sb || !isAdmin) return;
     try {
-      var r = await sb.from('barbers').insert({name:nm}).select('id').single();
+      var r = await sb.rpc('list_employees');
       if (r.error) throw r.error;
-      $('new-barber').value = ''; deskBarber = r.data.id;
-      await refresh(true);
-    } catch(e){ msg.textContent = 'Could not add the barber. Only the shop owner can add barbers.'; }
+      employees = r.data || []; empLoaded = true; $('add-msg').textContent = '';
+    } catch(e){ employees = []; empLoaded = false; $('add-msg').textContent = empErr(e); }
+    renderEmployees();
+  }
+  function renderEmployees(){
+    var ul = $('emp-list'); ul.textContent = '';
+    if (!isAdmin) return;
+    if (!empLoaded){ return; }
+    if (!employees.length){ ul.append(h('li',{class:'empty'},'No employees yet.')); return; }
+    employees.forEach(function(x){
+      var me = session && x.email && session.user.email && x.email.toLowerCase() === session.user.email.toLowerCase();
+      var login = x.status === 'linked' ? x.email : x.status === 'invited' ? x.email + ' (waiting for sign-up)' : 'No login';
+      ul.append(h('li',{style: x.active ? null : 'opacity:.6'},
+        h('div',{},
+          h('div',{class:'who'}, x.name, x.is_admin ? h('span',{class:'tag'},'Owner') : null, me ? h('span',{class:'tag'},'You') : null, !x.active ? h('span',{class:'tag'},'Removed') : null),
+          h('div',{class:'w'}, login)),
+        x.active
+          ? h('button',{class:'btn ghost small', type:'button', onclick:function(){ openEmpForm(x); }}, 'Edit')
+          : h('button',{class:'btn ghost small', type:'button', onclick:function(){ restoreEmp(x); }}, 'Bring back')));
+    });
+  }
+  function openEmpForm(x){
+    empEditing = x || null; empArmed = false;
+    $('emp-form-h').textContent = x ? 'Edit ' + x.name : 'Add employee';
+    $('emp-name').value = x ? x.name : '';
+    $('emp-email').value = x && x.email ? x.email : '';
+    $('emp-admin').checked = !!(x && x.is_admin);
+    var me = x && session && x.email && x.email.toLowerCase() === (session.user.email || '').toLowerCase();
+    $('emp-email').disabled = !!me; $('emp-admin').disabled = !!me;
+    $('emp-email-help').textContent = me ? 'This is your own login. It cannot be changed here.' : 'No account yet? They sign up with this email and get access automatically.';
+    $('emp-remove').hidden = !x || !!me;
+    $('emp-remove').textContent = 'Remove employee';
+    $('emp-msg').textContent = ''; $('emp-ok').textContent = '';
+    $('emp-form').hidden = false; $('emp-new').hidden = true;
+    $('emp-name').focus();
+  }
+  function closeEmpForm(){ empEditing = null; empArmed = false; $('emp-form').hidden = true; $('emp-new').hidden = false; }
+  async function afterEmpChange(id, text){
+    closeEmpForm();
+    await refresh(true);
+    await loadEmployees();
+    if (id != null){ var b = barbers.filter(function(z){ return String(z.id) === String(id); })[0]; if (b){ deskBarber = b.id; renderDesk(); } }
+    $('emp-ok').textContent = text;
+  }
+  async function saveEmp(){
+    var msg = $('emp-msg'), nm = $('emp-name').value.trim(), em = $('emp-email').value.trim();
+    msg.textContent = '';
+    if (!sb || !isAdmin) return;
+    if (!nm){ msg.textContent = 'Enter a name.'; return; }
+    if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ msg.textContent = 'That email does not look right.'; return; }
+    $('emp-save').disabled = true;
+    try {
+      var r = await sb.rpc('save_employee', {p_barber: empEditing ? empEditing.barber_id : '', p_name: nm, p_email: em, p_admin: $('emp-admin').checked});
+      if (r.error) throw r.error;
+      await afterEmpChange(r.data, empEditing ? 'Saved ' + nm + '.' : 'Added ' + nm + '. Set their days below.');
+    } catch(e){ msg.textContent = empErr(e); }
+    $('emp-save').disabled = false;
+  }
+  async function removeEmp(){
+    var x = empEditing, msg = $('emp-msg');
+    if (!x || !sb || !isAdmin) return;
+    if (!empArmed){ empArmed = true; $('emp-remove').textContent = 'Tap again to remove ' + x.name; msg.textContent = 'They lose their login and disappear from the booking page. Past bookings stay.'; return; }
+    try {
+      var r = await sb.rpc('remove_employee', {p_barber: x.barber_id});
+      if (r.error) throw r.error;
+      if (String(deskBarber) === String(x.barber_id)) deskBarber = null;
+      await afterEmpChange(null, 'Removed ' + x.name + '.');
+    } catch(e){ empArmed = false; $('emp-remove').textContent = 'Remove employee'; msg.textContent = empErr(e); }
+  }
+  async function restoreEmp(x){
+    try {
+      var r = await sb.rpc('save_employee', {p_barber: x.barber_id, p_name: x.name, p_email: '', p_admin: false});
+      if (r.error) throw r.error;
+      await afterEmpChange(r.data, 'Brought back ' + x.name + '. Add a login email if they need one.');
+    } catch(e){ $('add-msg').textContent = empErr(e); }
   }
   function renderDesk(){ renderAuth(); renderDeskTop(); fillProfileFields(); renderActFilter(); renderActivity(); renderDeskNotes(); renderDeskRows(); renderDeskBookings(); }
 
@@ -1502,8 +1641,11 @@ textarea.input{resize:vertical;font:inherit}
   window.addEventListener('hashchange', function(){ applyTab(); window.scrollTo(0, 0); });
   $('cust-name').addEventListener('input', updateForm);
   $('book-btn').addEventListener('click', confirmBooking);
-  $('add-barber').addEventListener('click', addBarber);
-  $('new-barber').addEventListener('keydown', function(e){ if (e.key==='Enter') addBarber(); });
+  $('emp-new').addEventListener('click', function(){ openEmpForm(null); });
+  $('emp-cancel').addEventListener('click', closeEmpForm);
+  $('emp-save').addEventListener('click', saveEmp);
+  $('emp-remove').addEventListener('click', removeEmp);
+  $('emp-name').addEventListener('keydown', function(e){ if (e.key==='Enter') saveEmp(); });
   $('add-note').addEventListener('click', addNote);
   $('save-prof').addEventListener('click', saveProfile);
   $('shop-edit').addEventListener('submit', saveShop);
@@ -1513,6 +1655,8 @@ textarea.input{resize:vertical;font:inherit}
   $('prof-cashapp').addEventListener('input', function(){ profDirty = true; });
   $('prof-card').addEventListener('input', function(){ profDirty = true; });
   $('prof-venmo').addEventListener('input', function(){ profDirty = true; });
+  $('prof-disc').addEventListener('input', function(){ profDirty = true; });
+  $('disc-agree').addEventListener('change', updateForm);
   $('find-btn').addEventListener('click', findBooking);
   $('owner-open').addEventListener('click', function(){ openShopEdit(); });
   $('own-close').addEventListener('click', function(){ setOwner(false); });
@@ -1646,7 +1790,7 @@ textarea.input{resize:vertical;font:inherit}
       var q = [
         sb.from('shop_settings').select('name,address,phone').eq('id', 1).maybeSingle(),
         sb.from('shop_hours').select('day_of_week,open_min,close_min'),
-        sb.from('barbers').select('id,name,bio,specialties'),
+        sb.from('barbers').select('*'),
         sb.from('availability').select('barber_id,day,start_min,end_min').gte('day', today),
         sb.from('notes').select('id,barber_id,body,from_day,to_day').limit(500),
         sb.from('taken_slots').select('barber_id,day,start_min').gte('day', today)
@@ -1663,7 +1807,7 @@ textarea.input{resize:vertical;font:inherit}
       var set = r[0].data;
       if (set){ SHOP.name = set.name || SHOP.name; SHOP.address = set.address || SHOP.address; SHOP.phone = set.phone || SHOP.phone; }
       (r[1].data || []).forEach(function(x){ HOURS[x.day_of_week] = x.open_min == null ? null : [x.open_min, x.close_min]; });
-      barbers = (r[2].data || []).map(function(x){ return {id:x.id, name:x.name, bio:x.bio || '', specialties:x.specialties || ''}; });
+      barbers = (r[2].data || []).filter(function(x){ return x.active !== false; }).map(function(x){ return {id:x.id, name:x.name, bio:x.bio || '', specialties:x.specialties || '', disclaimer:x.disclaimer || ''}; });
       avail = {};
       (r[3].data || []).forEach(function(x){ avail[x.barber_id+'_'+x.day] = {start:x.start_min, end:x.end_min}; });
       notes = (r[4].data || []).map(function(x){ return {id:x.id, barberId:x.barber_id, text:x.body, from:x.from_day || '', to:x.to_day || ''}; });
@@ -1694,11 +1838,17 @@ textarea.input{resize:vertical;font:inherit}
     if (session){
       try {
         var r = await sb.from('staff').select('barber_id,is_admin').eq('user_id', session.user.id).maybeSingle();
+        if (!r.error && !r.data){
+          var c = await sb.rpc('claim_staff_invite');
+          if (!c.error && c.data) r = await sb.from('staff').select('barber_id,is_admin').eq('user_id', session.user.id).maybeSingle();
+        }
         if (!r.error && r.data){ staff = {barberId:r.data.barber_id, isAdmin:!!r.data.is_admin}; canEdit = true; isAdmin = staff.isAdmin; }
       } catch(e){}
     }
     deskBarber = null;
+    employees = []; empLoaded = false; closeEmpForm(); $('emp-ok').textContent = ''; $('add-msg').textContent = '';
     renderContact();
+    if (isAdmin) loadEmployees(); else renderEmployees();
   }
 
   async function start(){
@@ -1915,7 +2065,7 @@ textarea.input{resize:vertical;font:inherit}
     {target:'#dates', title:'2. Pick a day', text:'Only days your barber is working show up.', before:function(){ window.openSection && window.openSection('dates-panel'); }},
     {target:'#times-panel', title:'Then pick a time', text:'Open times show in 30 minute slots. Taken times are greyed out.', before:function(){ window.openSection && window.openSection('dates-panel'); }},
     {target:'#confirm-panel', before:function(){ window.openSection && window.openSection('dates-panel'); }, title:'And confirm', text:'Add your name, and your phone if you want a call, then book. Nothing to pay yet.'},
-    {target:'#menu-fab', title:'The menu', text:'Tap Menu in the top corner anytime. Pay for your cut is right at the top: credit card, Cash App or Venmo. It is optional; you can also pay at the shop.'},
+    {target:'#menu-fab', title:'The menu', text:'Tap Menu in the top corner anytime. Pay for your cut is right at the top: credit card, Cash App, Venmo or PayPal. It is optional; you can also pay at the shop.'},
     {target:'#cancel-panel', title:'Need to cancel?', text:'Tap here, then enter the name you booked under to find and cancel your appointment.'},
     {target:'#hours-panel', title:'Shop hours', text:'Tap to see the hours for every day of the week.'},
     {target:'#app-install', title:'Get the app', text:'Tap here to put the Barbershop app on your home screen, so booking is one tap away.'},
@@ -1974,5 +2124,37 @@ textarea.input{resize:vertical;font:inherit}
 })();
 </script>
 
+<script>
+/* ---------- back and refresh buttons ---------- */
+(function(){
+  var stack = [location.hash || '#book'];
+  window.addEventListener('hashchange', function(){
+    var h = location.hash || '#book';
+    if (stack.length > 1 && stack[stack.length - 2] === h) stack.pop();
+    else if (stack[stack.length - 1] !== h) stack.push(h);
+  });
+  var DRAWERS = [['side','side-close'],['own-side','own-close'],['my-side','my-close'],['pay-side','pay-close']];
+  function closeOpenPanel(){
+    for (var i = 0; i < DRAWERS.length; i++){
+      var d = document.getElementById(DRAWERS[i][0]);
+      if (d && d.classList.contains('open')){ document.getElementById(DRAWERS[i][1]).click(); return true; }
+    }
+    var ih = document.getElementById('install-help');
+    if (ih && !ih.hidden){ document.getElementById('install-close').click(); return true; }
+    return false;
+  }
+  document.getElementById('nav-back').addEventListener('click', function(){
+    if (closeOpenPanel()) return;
+    if (stack.length > 1){ history.back(); return; }
+    var h = location.hash || '#book';
+    if (h !== '#book'){ stack = ['#book']; location.replace('#book'); return; }
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
+  document.getElementById('nav-refresh').addEventListener('click', function(){
+    this.classList.add('spin'); this.disabled = true;
+    location.reload();
+  });
+})();
+</script>
 </body>
 </html>

@@ -1,0 +1,18 @@
+{
+  "name": "Barbershop",
+  "short_name": "Barbershop",
+  "description": "Book a cut, see open times and pay your barber.",
+  "id": "./index.html",
+  "start_url": "./index.html#book",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#3f0d1a",
+  "theme_color": "#5e1527",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

@@ -6,6 +6,7 @@ window.BARBERSHOP_CONFIG = {
   PAYMENTS: {
     CASHAPP: '',    // your $Cashtag, e.g. '$FreshCuts'
     VENMO: '',      // your Venmo username, e.g. '@FreshCuts'
+    PAYPAL: '',     // your PayPal.me name, e.g. 'FreshCuts' (from paypal.me/FreshCuts)
     CARD_LINK: 'https://square.link/u/UiKIIteU'   // a payment link from Square, Stripe or PayPal, e.g. 'https://square.link/u/AbC123'
   }
 };
