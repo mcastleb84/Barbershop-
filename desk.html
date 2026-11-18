@@ -5,14 +5,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#5e1527">
 <title>Staff</title>
+<!-- This page is the Staff app's own home-screen entry. It keeps its own icon, name and start page,
+     and shows the barber desk from index.html inside it, so both apps share one set of code. -->
 <link rel="manifest" href="manifest-staff.webmanifest">
 <link rel="icon" href="icon-staff-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon-staff.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Staff">
-<script>location.replace('index.html?app=staff#barber');</script>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#5e1527}
+  iframe{position:fixed;left:0;right:0;bottom:0;top:env(safe-area-inset-top,0px);width:100%;height:calc(100% - env(safe-area-inset-top,0px));border:0;display:block}
+</style>
 </head>
-<body style="background:#3f0d1a;color:#fff;font-family:-apple-system,sans-serif;text-align:center;padding-top:30vh">
-<p>Opening the staff app… <a href="index.html?app=staff#barber" style="color:#fff">Tap here</a> if it does not open.</p>
+<body>
+<iframe id="app" src="index.html?app=staff&framed=1#barber" title="Staff app"></iframe>
+<script>
+  // Already inside the staff app (for example after signing up)? Show the desk directly instead of nesting.
+  if (window.self !== window.top) location.replace('index.html?app=staff&framed=1#barber');
+  // Match the top strip to the shop's colors and the home-screen name to the shop name.
+  var f = document.getElementById('app');
+  function sync(){
+    try {
+      var d = f.contentDocument; if (!d) return;
+      var bg = getComputedStyle(d.documentElement).getPropertyValue('--bg').trim();
+      if (bg){ document.body.style.background = bg; document.documentElement.style.background = bg; document.querySelector('meta[name="theme-color"]').setAttribute('content', bg); }
+      if (d.title && d.title !== document.title){ document.title = d.title; document.querySelector('meta[name="apple-mobile-web-app-title"]').setAttribute('content', d.title); }
+    } catch(e){}
+  }
+  f.addEventListener('load', sync); setInterval(sync, 2000);
+  if ('serviceWorker' in navigator) window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+</script>
 </body>
 </html>

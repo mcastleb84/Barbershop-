@@ -1098,6 +1098,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
   function fillProfileFields(){
     var custPage = window.BS_APP === 'staff' ? 'index.html' : '';
     $('prof-link').setAttribute('href', custPage + (deskBarber ? '#profile-' + deskBarber : '#book'));
+    if (window.BS_APP === 'staff') $('prof-link').setAttribute('target', '_blank');
     var b = barbers.filter(function(x){ return x.id === deskBarber; })[0];
     if (!b || profDirty) return;
     $('prof-spec').value = b.specialties || '';
