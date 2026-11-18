@@ -403,6 +403,14 @@ grant execute on function public.set_booking_email(text, text, text) to anon, au
 -- ============================================================
 -- 9. Appointment reminders by text (Twilio) and email (Resend)
 -- ============================================================
+-- TURN ON REMINDERS (run separately, after this script, with your own keys; leave out what you don't use):
+--   update public.reminder_settings set
+--     twilio_sid = 'AC...', twilio_token = '...', twilio_from = '+15551234567',
+--     resend_key = 're_...', email_from = 'Your Shop <reminders@yourdomain.com>',
+--     enabled = true
+--   where id = 1;
+-- Then test:  select public.send_test_reminder('+15551234567', 'you@example.com');
+-- Problems:   select * from public.reminder_log order by id desc limit 20;
 create extension if not exists http with schema extensions;
 create extension if not exists pg_cron;
 

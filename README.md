@@ -6,4 +6,4 @@ Booking app for a barbershop: customers book at index.html, staff use desk.html.
 It is safe to run again any time, and ends with a checklist. Every line should say OK.
 
 **Reminders:** texts (Twilio) and emails (Resend) go out about a day before each appointment.
-Add your keys in Supabase with the "Turn on reminders" query in setup-all.sql's notes, then check `reminder_log` if one doesn't arrive.
+Add your keys in Supabase with the "TURN ON REMINDERS" query in setup-all.sql (section 9), then check `reminder_log` if one doesn't arrive.
