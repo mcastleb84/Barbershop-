@@ -65,6 +65,9 @@
     if (hexOk(v.tcolor)) o.tcolor = hexOk(v.tcolor);
     if (photoOk(v.photo)) o.photo = photoOk(v.photo);
     if (isFinite(+v.fade) && v.fade !== '' && v.fade != null) o.fade = Math.min(85, Math.max(0, +v.fade));
+    if (/^(left|right)$/.test(v.px || '')) o.px = v.px;
+    if (/^(top|bottom)$/.test(v.py || '')) o.py = v.py;
+    if (isFinite(+v.zoom) && +v.zoom > 100) o.zoom = Math.min(250, Math.round(+v.zoom));
     if (hexOk(v.bg)) o.bg = hexOk(v.bg);
     return o;
   };
@@ -85,7 +88,8 @@
     var bgc = hexOk(cs.getPropertyValue('--bg').trim()) || '#5e1527', surface = hexOk(cs.getPropertyValue('--surface').trim()) || '#ffffff';
     var useMyPat = !!my.pattern, pat = (useMyPat ? my.pattern : shop.pattern) || 'solid';
     var c2 = (useMyPat ? my.c2 : shop.c2) || mix(bgc, lum(bgc) > .4 ? '#000000' : '#ffffff', .25);
-    var photo = my.photo || shop.photo || '', fade = (my.photo ? my.fade : shop.fade); if (fade == null) fade = 45;
+    var photo = my.photo || shop.photo || '', pl = my.photo ? my : shop, fade = pl.fade; if (fade == null) fade = 45;
+    var ppos = (pl.px || 'center') + ' ' + (pl.py || 'center'), pzoom = (pl.zoom || 100) / 100;
     var font = my.font || shop.font || '', all = my.font ? !!my.all : !!shop.all;
     var tlight = my.tlight || shop.tlight, tcolor = my.tcolor || shop.tcolor || '';
     var css = '';
@@ -105,9 +109,11 @@
     st.textContent = css;
     var ph = document.getElementById('bs-photo');
     if (photo && document.body){
-      if (!ph){ ph = document.createElement('div'); ph.id = 'bs-photo'; ph.setAttribute('aria-hidden', 'true'); ph.style.cssText = 'position:fixed;inset:0;z-index:-1;background-position:center;background-size:cover;background-repeat:no-repeat;pointer-events:none'; document.body.prepend(ph); }
-      var a = (fade / 100).toFixed(2), xx = rgb(bgc).join(',');
-      ph.style.backgroundImage = 'linear-gradient(rgba(' + xx + ',' + a + '),rgba(' + xx + ',' + a + ')),url("' + photo + '")';
+      if (!ph || !ph.firstChild){ if (ph) ph.remove(); ph = document.createElement('div'); ph.id = 'bs-photo'; ph.setAttribute('aria-hidden', 'true'); ph.style.cssText = 'position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none'; var pin = document.createElement('div'); pin.style.cssText = 'position:absolute;inset:0;background-size:cover;background-repeat:no-repeat'; ph.appendChild(pin); document.body.prepend(ph); }
+      var a = (fade / 100).toFixed(2), xx = rgb(bgc).join(','), img = ph.firstChild;
+      ph.style.backgroundColor = 'rgb(' + xx + ')';
+      img.style.backgroundImage = 'linear-gradient(rgba(' + xx + ',' + a + '),rgba(' + xx + ',' + a + ')),url("' + photo + '")';
+      img.style.backgroundPosition = ppos; img.style.transformOrigin = ppos; img.style.transform = pzoom > 1 ? 'scale(' + pzoom + ')' : '';
     } else if (ph) ph.remove();
   };
 
@@ -154,14 +160,28 @@
         '<div class="lk-sec" data-k="tcolor"><p class="lk-h">Text color</p>' + swatchRow('Text color', TEXT_COLORS, v.tcolor, '') +
         '<p class="hint" style="margin-top:6px">If a color is hard to read on the background, it gets darkened or lightened a little.</p></div>' +
         '<div class="lk-sec"><p class="lk-h">Photo behind the page</p>' +
-        (v.photo ? '<div class="lk-now"><img src="' + esc(v.photo) + '" alt="Background photo"><button type="button" class="btn ghost small" data-act="rm">Remove photo</button></div>' : '') +
-        '<label class="btn ghost small lk-up">' + (v.photo ? 'Pick a different photo' : 'Add a photo') + '<input type="file" accept="image/*" data-act="up"></label>' +
-        (v.photo ? '<label class="lk-h" style="margin-top:10px;display:flex;justify-content:space-between">Color over the photo <span>' + (v.fade == null ? 45 : v.fade) + '%</span></label><input type="range" min="0" max="85" data-k="fade" value="' + (v.fade == null ? 45 : v.fade) + '" aria-label="Color over the photo"><p class="hint">More color makes words easier to read.</p>' : '') +
+        (v.photo ?
+          '<div class="lk-now"><img src="' + esc(v.photo) + '" alt="Current background photo" style="object-position:' + (v.px || 'center') + ' ' + (v.py || 'center') + '">' +
+          '<div class="lk-photo-btns"><label class="btn ghost small lk-up">Change photo<input type="file" accept="image/*" data-act="up"></label>' +
+          '<button type="button" class="btn ghost small" data-act="rm">Delete photo</button></div></div>' +
+          '<p class="lk-h" style="margin-top:6px">Edit photo</p>' +
+          '<div class="lk-chips" data-k="py" role="group" aria-label="Show which part, top to bottom">' + [['top', 'Show top'], ['', 'Middle'], ['bottom', 'Show bottom']].map(function(o){ return '<button type="button" data-v="' + o[0] + '" aria-pressed="' + ((v.py || '') === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+          '<div class="lk-chips" data-k="px" role="group" aria-label="Show which part, left to right">' + [['left', 'Show left'], ['', 'Center'], ['right', 'Show right']].map(function(o){ return '<button type="button" data-v="' + o[0] + '" aria-pressed="' + ((v.px || '') === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+          '<label class="lk-h" style="margin-top:6px;display:flex;justify-content:space-between">Zoom <span>' + (v.zoom || 100) + '%</span></label><input type="range" min="100" max="250" step="5" data-k="zoom" value="' + (v.zoom || 100) + '" aria-label="Zoom">' +
+          '<label class="lk-h" style="margin-top:6px;display:flex;justify-content:space-between">Color over the photo <span>' + (v.fade == null ? 45 : v.fade) + '%</span></label><input type="range" min="0" max="85" data-k="fade" value="' + (v.fade == null ? 45 : v.fade) + '" aria-label="Color over the photo"><p class="hint">More color makes words easier to read.</p>' +
+          '<button type="button" class="btn ghost small" data-act="reset" style="align-self:flex-start">Undo photo edits</button>'
+        : '<label class="btn ghost small lk-up">Add a photo<input type="file" accept="image/*" data-act="up"></label>') +
         '<p class="msg" data-photo-msg role="alert"></p></div>';
     }
     box.addEventListener('click', function(e){
       var b = e.target.closest('button'); if (!b || !box.contains(b)) return;
-      if (b.dataset.act === 'rm'){ set({ photo: '' }); draw(); return; }
+      if (b.dataset.act === 'rm'){
+        if (b.dataset.sure !== '1'){ b.dataset.sure = '1'; b.textContent = 'Tap again to delete'; setTimeout(function(){ if (b.isConnected){ b.dataset.sure = ''; b.textContent = 'Delete photo'; } }, 4000); return; }
+        set({ photo: '', fade: '', px: '', py: '', zoom: '' }); draw(); var m0 = box.querySelector('[data-photo-msg]'); if (m0) m0.textContent = 'Photo deleted.'; return;
+      }
+      if (b.dataset.act === 'reset'){ set({ px: '', py: '', zoom: '', fade: 45 }); draw(); return; }
+      var pg = b.closest('[data-k="px"],[data-k="py"]');
+      if (pg){ var pk = pg.dataset.k, pv = b.dataset.v; set(JSON.parse('{"' + pk + '":"' + pv + '"}')); draw(); var again2 = box.querySelector('[data-k="' + pk + '"] [data-v="' + pv + '"]'); if (again2) again2.focus(); return; }
       var grp = b.closest('[data-k]'), dot = b.classList.contains('lk-dot');
       if (dot){
         var sec = b.closest('.lk-sec'), key = sec && sec.dataset.k ? sec.dataset.k : (opts.mainColor && sec === box.querySelector('.lk-sec') ? 'bg' : '');
@@ -181,7 +201,7 @@
         var m = box.querySelector('[data-photo-msg]');
         if (!/^image\//.test(f.type)){ m.textContent = 'Pick a photo.'; return; }
         m.textContent = 'Adding your photo…';
-        try { var url = await BS.bsShrinkPhoto(f, opts.photoSize || 1200, .65); if (set({ photo: url, fade: get().fade == null ? 45 : get().fade }) === false){ m.textContent = 'That photo is too big to save. Try a smaller one.'; return; } draw(); }
+        try { var url = await BS.bsShrinkPhoto(f, opts.photoSize || 1200, .65); if (set({ photo: url, fade: get().fade == null ? 45 : get().fade, px: '', py: '', zoom: '' }) === false){ m.textContent = 'That photo is too big to save. Try a smaller one.'; return; } draw(); }
         catch(err){ m.textContent = "That photo didn't open. Try another one."; }
       }
     });
@@ -192,6 +212,7 @@
         var l = t.closest('label'); l.dataset.on = '1'; l.style.background = c; sec.querySelectorAll('.lk-dot[data-v]').forEach(function(d){ d.setAttribute('aria-pressed', 'false'); });
         set(JSON.parse('{"' + key + '":"' + c + '"}')); return;
       }
+      if (t.dataset.k === 'zoom'){ set({ zoom: +t.value > 100 ? +t.value : '' }); var zs = t.previousElementSibling && t.previousElementSibling.querySelector('span'); if (zs) zs.textContent = t.value + '%'; return; }
       if (t.dataset.k === 'fade'){ set({ fade: +t.value }); var s = t.previousElementSibling && t.previousElementSibling.querySelector('span'); if (s) s.textContent = t.value + '%'; }
     });
     draw();
