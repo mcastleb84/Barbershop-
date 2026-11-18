@@ -894,7 +894,9 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       set: function(patch){
         var t = Object.assign({id:'classic'}, themeDraft || {}, patch);
         Object.keys(patch).forEach(function(k){ if (patch[k] === '' || patch[k] === false) delete t[k]; });
-        themeDraft = t; bsRender(themeDraft); $('own-colors-ok').textContent = 'Preview. Tap Save colors to keep it.'; return true;
+        themeDraft = t; bsRender(themeDraft);
+        if ('photo' in patch || 'fade' in patch) autoSavePhoto(); else $('own-colors-ok').textContent = 'Preview. Tap Save colors to keep it.';
+        return true;
       },
       bgNow: function(){ return bsColor.hexOk(getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()); },
       photoSize: 1000
@@ -928,16 +930,57 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     } catch(e){ msg.textContent = /column/i.test((e && e.message) || '') ? 'To save colors, run shop-setup.sql in Supabase first.' : 'Could not save. Sign in again and retry.'; }
     $('own-save-colors').disabled = false;
   }
-  async function loadTheme(){
+  /* A photo added or removed in the staff app is saved right away, so customers see it without tapping Save colors.
+     Only the photo and its color fade are saved here; other color previews still wait for Save colors. */
+  var photoTimer = null;
+  function autoSavePhoto(){
+    clearTimeout(photoTimer);
+    $('own-colors-ok').textContent = 'Saving photo…'; $('own-colors-msg').textContent = '';
+    photoTimer = setTimeout(async function(){
+      if (!sb || !isAdmin){ $('own-colors-ok').textContent = ''; $('own-colors-msg').textContent = 'Sign in as the owner to save the photo.'; return; }
+      var d = themeDraft || {}, next = Object.assign({id:'classic'}, themeSaved || {});
+      if (d.photo){ next.photo = d.photo; if (d.fade != null) next.fade = d.fade; else delete next.fade; } else { delete next.photo; delete next.fade; }
+      if (next.id === 'classic' && !Object.keys(lookExtras(next)).length) next = null;
+      try {
+        var r = await sb.from('shop_settings').update({theme: next ? JSON.stringify(next) : ''}).eq('id', 1).select('id');
+        if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
+        themeSaved = next; try { if (next) localStorage.setItem('bs.shoptheme', JSON.stringify(next)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
+        $('own-colors-ok').textContent = d.photo ? 'Photo saved. Customers see it now.' : 'Photo removed for customers.';
+      } catch(e){ $('own-colors-ok').textContent = ''; $('own-colors-msg').textContent = 'Could not save the photo. Sign in again and retry.'; }
+    }, 700);
+  }
+  /* Keep the customer app up to date: listen for shop changes live, and re-check when the app is opened again. */
+  var themeRaw = null, themeLast = 0;
+  async function loadTheme(force){
     if (!sb) return;
+    if (!force && Date.now() - themeLast < 10000) return;
+    themeLast = Date.now();
     try {
       var r = await sb.from('shop_settings').select('theme').eq('id', 1).maybeSingle();
       if (r.error || !r.data) return;
-      var v = null; try { v = r.data.theme ? JSON.parse(r.data.theme) : null; } catch(e){ v = null; }
-      themeSaved = v;
-      if (!$('own-side').classList.contains('open')) bsRender(v);
-      try { if (v) localStorage.setItem('bs.shoptheme', JSON.stringify(v)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
+      useTheme(r.data.theme);
     } catch(e){}
+  }
+  function useTheme(text){
+    text = text || '';
+    if (text === themeRaw) return;   // nothing changed, keep the page as it is
+    themeRaw = text;
+    var v = null; try { v = text ? JSON.parse(text) : null; } catch(e){ v = null; }
+    themeSaved = v;
+    if (!$('own-side').classList.contains('open')) bsRender(v);
+    try { if (v) localStorage.setItem('bs.shoptheme', JSON.stringify(v)); else localStorage.removeItem('bs.shoptheme'); } catch(e){}
+  }
+  function watchTheme(){
+    if (!sb) return;
+    try {
+      sb.channel('shop-look')
+        .on('postgres_changes', {event: 'UPDATE', schema: 'public', table: 'shop_settings', filter: 'id=eq.1'}, function(p){
+          if (p && p.new && 'theme' in p.new) useTheme(p.new.theme); else loadTheme(true);
+        })
+        .subscribe();
+    } catch(e){}
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) loadTheme(); });
+    window.addEventListener('focus', function(){ loadTheme(); });
   }
   function openShopEdit(focusId){
     $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone; $('se-window').value = String(BOOK_MONTHS);
@@ -2076,7 +2119,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     } catch(e){ session = null; }
     await loadStaff();
     await refresh(true);
-    loadPay(); loadTheme();
+    loadPay(); loadTheme(true); watchTheme();
     applyTab();
     sb.auth.onAuthStateChange(function(ev, s2){
       setTimeout(async function(){
@@ -2091,6 +2134,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       tick++;
       if (document.hidden) return;
       if (staff || tick % 2 === 0) refresh(false, true);
+      if (!staff && tick % 4 === 0) loadTheme();   // backup check every minute in case the live link drops
     }, 15000);
   }
   start();
