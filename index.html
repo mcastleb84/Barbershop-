@@ -452,6 +452,9 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       <div class="field"><label for="se-name">Business name</label><input class="input" id="se-name" maxlength="40" required></div>
       <div class="field"><label for="se-address">Address</label><input class="input" id="se-address" maxlength="120" required></div>
       <div class="field"><label for="se-phone">Phone number</label><input class="input" id="se-phone" maxlength="30" inputmode="tel" required></div>
+      <div class="field"><label for="se-window">How far ahead customers can book</label>
+        <select class="input" id="se-window"><option value="0">2 weeks</option><option value="1">1 month</option><option value="2">2 months</option><option value="3">3 months</option><option value="6">6 months</option></select>
+      </div>
       <div class="field" hidden><label for="se-card">Card payment link (optional)</label><input class="input" id="se-card" maxlength="300" inputmode="url" placeholder="https://square.link/u/..." autocomplete="off" autocapitalize="off"></div>
       <div class="field" hidden><label for="se-cashapp">Cash App $Cashtag (optional)</label><input class="input" id="se-cashapp" maxlength="21" placeholder="$FreshCuts" autocomplete="off" autocapitalize="off"></div>
       <div class="field" hidden><label for="se-venmo">Venmo username (optional)</label><input class="input" id="se-venmo" maxlength="31" placeholder="@FreshCuts" autocomplete="off" autocapitalize="off"></div>
@@ -698,7 +701,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         <div class="daytabs" role="tablist" aria-label="Which days to show">
           <button type="button" role="tab" class="daytab" data-dayview="today" aria-selected="true">Today</button>
           <button type="button" role="tab" class="daytab" data-dayview="tomorrow" aria-selected="false">Tomorrow</button>
-          <button type="button" role="tab" class="daytab" data-dayview="later" aria-selected="false">Next 2 weeks</button>
+          <button type="button" role="tab" class="daytab" data-dayview="later" aria-selected="false" id="later-tab">Upcoming</button>
         </div>
         <div id="deskrows"></div>
       </div>
@@ -750,7 +753,15 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
   function parseKey(k){ var p = k.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
   function fmtMin(m){ var hh = Math.floor(m/60), mm = m%60; return (hh%12||12)+':'+pad(mm)+' '+(hh>=12?'PM':'AM'); }
   function fmtDay(k){ var d = parseKey(k); return DOWS[d.getDay()]+', '+MON[d.getMonth()]+' '+d.getDate(); }
-  function days(){ var t = new Date(), out = []; for (var i=0;i<14;i++) out.push(keyOf(new Date(t.getFullYear(), t.getMonth(), t.getDate()+i))); return out; }
+  var BOOK_MONTHS = 0, daysCache = null; // 0 = two weeks; otherwise customers can book this many months ahead
+  function windowText(){ return BOOK_MONTHS ? (BOOK_MONTHS === 1 ? 'month' : BOOK_MONTHS + ' months') : '2 weeks'; }
+  function days(){
+    var t = new Date(), sig = keyOf(t) + '|' + BOOK_MONTHS;
+    if (daysCache && daysCache.sig === sig) return daysCache.list;
+    var end = BOOK_MONTHS ? new Date(t.getFullYear(), t.getMonth() + BOOK_MONTHS, t.getDate()) : new Date(t.getFullYear(), t.getMonth(), t.getDate() + 14), out = [];
+    for (var d = new Date(t.getFullYear(), t.getMonth(), t.getDate()); d < end; d.setDate(d.getDate() + 1)) out.push(keyOf(d));
+    daysCache = {sig: sig, list: out}; return out;
+  }
   function shopWindow(k){ return HOURS[parseKey(k).getDay()]; }
   function nowMin(){ var n = new Date(); return n.getHours()*60+n.getMinutes(); }
   function initial(s){ return (s.trim().charAt(0)||'?').toUpperCase(); }
@@ -848,7 +859,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     if (open){
       if (!isAdmin) return;
       if (!$('own-shop').contains($('shop-edit'))) $('own-shop').appendChild($('shop-edit'));
-      $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone;
+      $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone; $('se-window').value = String(BOOK_MONTHS);
       $('shop-edit').hidden = false;
       ownReturn = document.activeElement; themeDraft = themeSaved; renderOwnSwatches(); initOwnLook();
       $('own-colors-msg').textContent = ''; $('own-colors-ok').textContent = '';
@@ -915,7 +926,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     } catch(e){}
   }
   function openShopEdit(focusId){
-    $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone;
+    $('se-name').value = SHOP.name; $('se-address').value = SHOP.address; $('se-phone').value = SHOP.phone; $('se-window').value = String(BOOK_MONTHS);
     $('se-cashapp').value = PAY.cashapp ? '$' + PAY.cashapp : ''; $('se-venmo').value = PAY.venmo ? '@' + PAY.venmo : ''; $('se-card').value = PAY.card_link || '';
     $('se-msg').textContent = '';
     $('shop-edit').hidden = false;
@@ -955,6 +966,12 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       var r = await sb.from('shop_settings').update(v).eq('id', 1).select('id');
       if (r.error || !r.data || !r.data.length) throw (r.error || new Error('denied'));
       SHOP.name = v.name; SHOP.address = v.address; SHOP.phone = v.phone;
+      var bm = +$('se-window').value || 0;
+      if (bm !== BOOK_MONTHS){
+        var rw = await sb.from('shop_settings').update({booking_months: bm}).eq('id', 1).select('id');
+        if (rw.error){ msg.textContent = /column/i.test(rw.error.message || '') ? 'Shop info saved. To change how far ahead customers can book, run booking-window.sql in Supabase first.' : 'Shop info saved, but the booking window did not. Try again.'; renderContact(); $('se-save').disabled = false; return; }
+        BOOK_MONTHS = bm; daysCache = null; calMonth = null; deskShow = 28; renderBook(); if (staff) renderDesk();
+      }
       var pay = {cashapp: cleanTag($('se-cashapp').value, '$'), venmo: cleanTag($('se-venmo').value, '@'), card_link: cleanLink($('se-card').value)};
       if (!okLink(pay.card_link)){ msg.textContent = 'That card payment link does not look right. Copy the full link from Square, Stripe or PayPal.'; $('se-save').disabled = false; return; }
       if (pay.cashapp && !/^[A-Za-z][A-Za-z0-9_-]{0,19}$/.test(pay.cashapp)){ msg.textContent = 'That $Cashtag does not look right. It starts with a letter, like $FreshCuts.'; $('se-save').disabled = false; return; }
@@ -1292,7 +1309,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
   function renderTimes(){
     var box = $('times'); box.textContent = '';
     if (!selBarber){ box.append(h('p',{class:'empty'},'Choose a barber and a day to see times.')); return; }
-    if (!selDate){ box.append(h('p',{class:'empty'},'This barber has no open times in the next two weeks. Try another barber.')); return; }
+    if (!selDate){ box.append(h('p',{class:'empty'},'This barber has no open times in the next ' + windowText() + '. Try another barber.')); return; }
     var sl = slotsFor(selBarber, selDate), shop = shopWindow(selDate);
     box.append(h('p',{class:'hint',style:'margin-bottom:10px'}, fmtDay(selDate)+' · shop open '+fmtMin(shop[0])+' – '+fmtMin(shop[1])));
     dayNotes(selBarber, selDate).forEach(function(n){ box.append(h('p',{class:'bnote'}, barberName(selBarber)+': '+n.text)); });
@@ -1408,7 +1425,8 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
   function renderDeskRows(){
     var box = $('deskrows'); box.textContent = '';
     if (!deskBarber){ box.append(h('p',{class:'empty'},'Add a barber to start setting availability.')); return; }
-    var all = days(), list = dayView === 'today' ? all.slice(0, 1) : dayView === 'tomorrow' ? all.slice(1, 2) : all.slice(1);
+    var all = days(), list = dayView === 'today' ? all.slice(0, 1) : dayView === 'tomorrow' ? all.slice(1, 2) : all.slice(1, 1 + deskShow);
+    if (dayView === 'later' && canEdit) box.append(repeatBox(all));
     document.querySelectorAll('[data-dayview]').forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.dayview === dayView)); });
     list.forEach(function(k){
       var sw = shopWindow(k);
@@ -1433,6 +1451,35 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       if (d.err) row.append(h('p',{class:'rowmsg'}, d.err));
       box.append(row);
     });
+    if (dayView === 'later' && all.length - 1 > deskShow)
+      box.append(h('button',{class:'btn ghost small', type:'button', style:'margin-top:10px', onclick:function(){ deskShow += 28; renderDeskRows(); }}, 'Show 4 more weeks'));
+  }
+  var deskShow = 28, repArmed = false, repMsg = '';
+  function repeatBox(all){
+    var pattern = {}, n = 0;
+    all.slice(0, 7).forEach(function(k){ var a = avail[deskBarber + '_' + k]; if (a){ pattern[parseKey(k).getDay()] = a; n++; } });
+    var targets = all.slice(7).filter(function(k){ var sw = shopWindow(k), a = pattern[parseKey(k).getDay()]; return sw && a && !avail[deskBarber + '_' + k]; });
+    var wrap = h('div',{class:'notice', style:'margin:0 0 12px'},
+      h('strong',{}, 'Repeat weekly'), h('br'),
+      n ? 'Copy the hours saved for the next 7 days to every matching weekday through ' + fmtDay(all[all.length - 1]) + '. Days you already set are not changed.'
+        : 'Save your hours for the next 7 days first, then copy them to every week customers can book.');
+    if (n) wrap.append(h('div',{style:'margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap'},
+      h('button',{class:'btn small', type:'button', disabled: !targets.length, onclick:function(){ repeatWeekly(targets, pattern); }},
+        !targets.length ? 'Already filled in' : repArmed ? 'Tap again to fill ' + targets.length + ' days' : 'Repeat weekly'),
+      repMsg ? h('span',{class:'saved'}, repMsg) : null));
+    return wrap;
+  }
+  async function repeatWeekly(targets, pattern){
+    if (!repArmed){ repArmed = true; repMsg = ''; renderDeskRows(); return; }
+    repArmed = false;
+    var rows = targets.map(function(k){ var a = pattern[parseKey(k).getDay()], sw = shopWindow(k);
+      var st = Math.max(a.start, sw[0]), en = Math.min(a.end, sw[1]); return st < en ? {barber_id: deskBarber, day: k, start_min: st, end_min: en} : null; }).filter(Boolean);
+    try {
+      var r = await sb.from('availability').upsert(rows, {onConflict: 'barber_id,day'}).select('day');
+      if (r.error) throw r.error;
+      repMsg = 'Filled in ' + rows.length + ' days.';
+    } catch(e){ repMsg = 'Could not copy. Sign in again and retry.'; }
+    await refresh(true);
   }
   var apptFilter = null;
   function dayLabel(k){
@@ -1501,7 +1548,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     var help = $('ap-help'); help.textContent = '';
     if (!open.length){
       var who = barberName(bs.value), others = choices.filter(function(b){ return b.id !== bs.value && days().some(function(k){ return freeCount(b.id, k) > 0; }); });
-      help.append(who + ' has no open days in the next 2 weeks, so there is nothing to pick yet. ',
+      help.append(who + ' has no open days in the next ' + windowText() + ', so there is nothing to pick yet. ',
         h('button',{class:'btn ghost small', type:'button', onclick:function(){
           deskBarber = bs.value; $('desk-barber').value = deskBarber; profDirty = false; fillProfileFields(); renderDeskNotes(); renderDeskRows();
           if (window.openSection) window.openSection('desk-days');
@@ -1876,8 +1923,10 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
         q.push(sb.from('bookings').select('id,barber_id,day,start_min,customer_name,customer_phone,note').gte('day', today));
         q.push(sb.from('activity').select('id,kind,actor,barber_id,day,start_min,customer_name,customer_phone,note,created_at').order('created_at', {ascending:false}).limit(60));
       }
-      var r = await Promise.all(q);
+      var wq = sb.from('shop_settings').select('booking_months').eq('id', 1).maybeSingle();
+      var r = await Promise.all(q), wr = await wq;
       for (var i = 0; i < r.length; i++) if (r[i].error) throw r[i].error;
+      if (!wr.error && wr.data && wr.data.booking_months != null && +wr.data.booking_months !== BOOK_MONTHS){ BOOK_MONTHS = +wr.data.booking_months; force = true; }
       var sig = JSON.stringify(r.map(function(x){ return x.data; }));
       if (!force && loaded && sig === lastSig) return;
       lastSig = sig;
@@ -2158,7 +2207,7 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     {target:'#desk-activity', title:'Recent activity', text:'New bookings and cancellations show up here. Keep the page open to get alerts.', before:open('desk-activity')},
     {target:'#desk-profile', title:'Your profile', text:'Your specialties and a short bio. Customers see these when they tap your name.', before:open('desk-profile')},
     {target:'#desk-notes', title:'Notes for customers', text:'Going on vacation or leaving early? Post a note and customers will see it when booking.', before:open('desk-notes')},
-    {target:'#desk-days', title:'Your hours', text:'Turn days on or off and set your hours, then tap Save day. Use the tabs to see Today, Tomorrow or the next 2 weeks.', before:open('desk-days')},
+    {target:'#desk-days', title:'Your hours', text:'Turn days on or off and set your hours, then tap Save day. Use the tabs to see Today, Tomorrow or the days after. Repeat weekly copies one week of hours ahead.', before:open('desk-days')},
     {target:'#owner-open', title:'Owner settings', text:'Owners only: change the shop name, address, phone and the app colors. Changes show for every customer.'},
     {target:'#side-open', title:'Your account', text:'Log out here when you are done.'},
     {title:'You are all set', text:'Tap a section title to open it. Opening one folds the others away. Replay this tour anytime with How it works.', before:open('desk-bookings')}
