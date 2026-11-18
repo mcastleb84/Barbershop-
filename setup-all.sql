@@ -459,7 +459,14 @@ returns boolean language plpgsql security definer set search_path = public, exte
 declare c public.reminder_settings; r extensions.http_response; v_ok boolean := false; v_detail text;
 begin
   select * into c from public.reminder_settings where id = 1;
-  if c.twilio_sid = '' or c.twilio_token = '' or c.twilio_from = '' then return false; end if;
+  if c.twilio_sid = '' or c.twilio_token = '' or c.twilio_from = '' then
+    insert into public.reminder_log (booking_id, channel, sent_to, ok, detail) values (p_booking, 'text', p_to, false, 'Texts not set up: add twilio_sid, twilio_token and twilio_from');
+    return false;
+  end if;
+  if c.twilio_from !~ '^\+[1-9][0-9]{7,14}$' then
+    insert into public.reminder_log (booking_id, channel, sent_to, ok, detail) values (p_booking, 'text', p_to, false, 'twilio_from must look like +15551234567, got: ' || c.twilio_from);
+    return false;
+  end if;
   begin
     r := extensions.http((
       'POST', 'https://api.twilio.com/2010-04-01/Accounts/' || c.twilio_sid || '/Messages.json',
@@ -479,7 +486,10 @@ returns boolean language plpgsql security definer set search_path = public, exte
 declare c public.reminder_settings; r extensions.http_response; v_ok boolean := false; v_detail text;
 begin
   select * into c from public.reminder_settings where id = 1;
-  if c.resend_key = '' or c.email_from = '' then return false; end if;
+  if c.resend_key = '' or c.email_from = '' then
+    insert into public.reminder_log (booking_id, channel, sent_to, ok, detail) values (p_booking, 'email', p_to, false, 'Emails not set up: add resend_key and email_from');
+    return false;
+  end if;
   begin
     r := extensions.http((
       'POST', 'https://api.resend.com/emails',
@@ -538,10 +548,10 @@ begin
   select coalesce(nullif(trim(name), ''), 'the shop') into v_shop from public.shop_settings where id = 1;
   t := case when public.reminder_phone(p_phone) is null then null
             else public.reminder_send_text(public.reminder_phone(p_phone), 'Test reminder from ' || v_shop || '. Texts are working.', 'test') end;
-  e := case when coalesce(p_email, '') = '' then null
+  e := case when coalesce(p_email, '') = '' or not exists (select 1 from public.reminder_settings where id = 1 and resend_key <> '') then null
             else public.reminder_send_email(p_email, 'Test reminder from ' || v_shop, 'Emails are working.', 'test') end;
   return 'Text: ' || coalesce(case when t then 'sent' else 'FAILED (see reminder_log)' end, 'skipped')
-      || ' | Email: ' || coalesce(case when e then 'sent' else 'FAILED (see reminder_log)' end, 'skipped');
+      || ' | Email: ' || coalesce(case when e then 'sent' else 'FAILED (see reminder_log)' end, 'not set up');
 end $$;
 
 revoke all on function public.reminder_send_text(text, text, text)          from public, anon, authenticated;
