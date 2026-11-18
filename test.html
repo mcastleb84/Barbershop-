@@ -170,16 +170,27 @@ button{cursor:pointer}
 .pspec{margin:6px 0 0;color:var(--muted);font-size:14px}
 .pbio{margin:14px 0 0;max-width:62ch;white-space:pre-wrap;overflow-wrap:anywhere}
 
-.dates{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
-.date{flex:none;width:70px;padding:8px 4px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);text-align:center}
-.date .dw{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.date .dn{display:block;font-family:var(--font-display);font-weight:800;font-size:28px;line-height:1.05}
-.date .dm{display:block;font-size:11px;color:var(--muted)}
-.date .ct{display:block;margin-top:4px;font-family:var(--font-mono);font-size:11px;color:var(--ok)}
-.date[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
-.date[aria-pressed="true"] .dw,.date[aria-pressed="true"] .dm,.date[aria-pressed="true"] .ct{color:var(--accent-ink)}
-.date:disabled{opacity:.5;cursor:not-allowed;background:var(--wash)}
-.date:disabled .ct{color:var(--muted)}
+.dates{max-width:460px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-title{font-family:var(--font-display);font-weight:800;font-size:20px}
+.cal-nav{width:44px;height:44px;border:1.5px solid var(--line);border-radius:50%;background:var(--surface);font-size:24px;line-height:1;color:var(--ink)}
+.cal-nav:disabled{opacity:.3;cursor:not-allowed}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.cal-dow{text-align:center;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;padding:4px 0}
+.cal-day{position:relative;aspect-ratio:1/1.08;min-height:44px;padding:4px 2px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.cal-day .cd-n{font-family:var(--font-display);font-weight:800;font-size:19px;line-height:1}
+.cal-day .cd-c{font-family:var(--font-mono);font-size:11px;line-height:1.1;color:var(--muted);white-space:nowrap;overflow:hidden;max-width:100%}
+.cal-day.open .cd-c{color:var(--ok);font-weight:700}
+.cal-day.open::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.cal-day.today{box-shadow:inset 0 0 0 2px var(--ink)}
+.cal-day[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.cal-day[aria-pressed="true"] .cd-c{color:var(--accent-ink)}
+.cal-day[aria-pressed="true"]::after{background:var(--accent-ink)}
+.cal-day:disabled{opacity:.42;cursor:not-allowed;background:var(--wash)}
+.cal-pad{min-height:44px}
+.cal-key{margin:8px 0 0;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.cal-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok)}
+@media (max-width:380px){.cal-day .cd-c{font-size:10px}.cal-day .cd-n{font-size:17px}}
 
 .times{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
 .slot{padding:10px 6px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);font-family:var(--font-mono);font-weight:500;font-size:13px}
@@ -1244,17 +1255,39 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
       }}, h('span',{class:'av','aria-hidden':'true'}, initial(b.name)), h('span',{class:'nm'}, b.name)), h('a',{class:'plink', href:'#profile-'+b.id, 'aria-label':'View '+b.name+'\'s profile'}, 'View profile')));
     });
   }
+  var calSel = null, calMonth = null; // first day of the month on screen, as 'YYYY-MM'
   function renderDates(){
     var box = $('dates'); box.textContent = '';
     if (!selBarber){ box.append(h('p',{class:'empty'},'Choose a barber first.')); return; }
-    days().forEach(function(k){
-      var d = parseKey(k), shop = shopWindow(k), n = shop ? freeCount(selBarber,k) : 0;
-      var label = !shop ? 'Closed' : (n>0 ? n+' open' : (windowFor(selBarber,k) ? 'Full' : 'Off'));
-      box.append(h('button', {class:'date', type:'button', disabled: n===0, 'aria-pressed': String(k===selDate),
-        'aria-label': fmtDay(k)+', '+label, onclick:function(){ selDate = k; selTime = null; confirmed = null; renderBook(); }},
-        h('span',{class:'dw'}, DOWS[d.getDay()]), h('span',{class:'dn'}, String(d.getDate())),
-        h('span',{class:'dm'}, MON[d.getMonth()]), h('span',{class:'ct'}, label)));
-    });
+    var win = days(), first = win[0], last = win[win.length - 1];
+    var months = []; win.forEach(function(k){ var m = k.slice(0, 7); if (months.indexOf(m) < 0) months.push(m); });
+    var want = (selDate || first).slice(0, 7);
+    if (selDate !== calSel){ calSel = selDate; calMonth = null; }
+    if (!calMonth || months.indexOf(calMonth) < 0) calMonth = want;
+    var mi = months.indexOf(calMonth), md = parseKey(calMonth + '-01');
+    var today = keyOf(new Date());
+    var head = h('div',{class:'cal-head'},
+      h('button',{class:'cal-nav', type:'button', 'aria-label':'Previous month', disabled: mi <= 0, onclick:function(){ calMonth = months[mi - 1]; renderDates(); }}, '‹'),
+      h('span',{class:'cal-title'}, ['January','February','March','April','May','June','July','August','September','October','November','December'][md.getMonth()] + ' ' + md.getFullYear()),
+      h('button',{class:'cal-nav', type:'button', 'aria-label':'Next month', disabled: mi >= months.length - 1, onclick:function(){ calMonth = months[mi + 1]; renderDates(); }}, '›'));
+    var grid = h('div',{class:'cal-grid', role:'grid'});
+    DOWS.forEach(function(d){ grid.append(h('span',{class:'cal-dow'}, d.charAt(0))); });
+    for (var i = 0; i < md.getDay(); i++) grid.append(h('span',{class:'cal-pad'}));
+    var dim = new Date(md.getFullYear(), md.getMonth() + 1, 0).getDate();
+    for (var dn = 1; dn <= dim; dn++){
+      (function(dn){
+        var k = calMonth + '-' + pad(dn);
+        var inWin = k >= first && k <= last;
+        var shop = inWin ? shopWindow(k) : null, n = shop ? freeCount(selBarber, k) : 0;
+        var label = !inWin ? (k < first ? 'Past' : 'Not open for booking yet') : !shop ? 'Closed' : (n > 0 ? n + ' open' : (windowFor(selBarber, k) ? 'Full' : 'Off'));
+        var cls = 'cal-day' + (k === today ? ' today' : '') + (n > 0 ? ' open' : '');
+        grid.append(h('button',{class:cls, type:'button', disabled: n === 0, 'aria-pressed': String(k === selDate),
+          'aria-label': fmtDay(k) + ', ' + label, onclick:function(){ selDate = k; selTime = null; confirmed = null; renderBook(); }},
+          h('span',{class:'cd-n'}, String(dn)),
+          h('span',{class:'cd-c'}, inWin && shop ? (n > 0 ? String(n) : label) : '')));
+      })(dn);
+    }
+    box.append(head, grid, h('p',{class:'cal-key'}, h('span',{class:'cal-dot'}), ' Number = open times that day   ·   Gray = closed, full or not bookable yet'));
   }
   function renderTimes(){
     var box = $('times'); box.textContent = '';
