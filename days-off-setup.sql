@@ -36,3 +36,29 @@ drop policy if exists days_off_write on public.days_off;
 create policy days_off_write on public.days_off for all to authenticated
   using (public.days_off_can_edit(barber_id))
   with check (public.days_off_can_edit(barber_id));
+
+-- Fill in every open day for every barber (shop hours), through the booking window,
+-- skipping days a barber turned off. The site calls this when it loads, so customers
+-- can always pick a date without anyone opening the barber desk first.
+create or replace function public.fill_open_days()
+returns integer language plpgsql security definer set search_path = public as $$
+declare v_months int := 0; v_end date; v_n int := 0;
+begin
+  begin
+    select coalesce((to_jsonb(s) ->> 'booking_months')::int, 0) into v_months from public.shop_settings s where s.id = 1;
+  exception when others then v_months := 0;
+  end;
+  v_end := case when coalesce(v_months, 0) > 0 then (current_date + make_interval(months => v_months))::date else current_date + 14 end;
+  insert into public.availability (barber_id, day, start_min, end_min)
+  select b.id, d::date, h.open_min, h.close_min
+  from public.barbers b
+  cross join generate_series(current_date::timestamp, (v_end - 1)::timestamp, interval '1 day') d
+  join public.shop_hours h on h.day_of_week = extract(dow from d)::int and h.open_min is not null and h.close_min > h.open_min
+  where coalesce((to_jsonb(b) ->> 'active')::boolean, true)
+    and not exists (select 1 from public.availability a where a.barber_id = b.id and a.day::date = d::date)
+    and not exists (select 1 from public.days_off o where o.barber_id = b.id::text and o.day = d::date)
+  on conflict (barber_id, day) do nothing;
+  get diagnostics v_n = row_count;
+  return v_n;
+end $$;
+grant execute on function public.fill_open_days() to anon, authenticated;

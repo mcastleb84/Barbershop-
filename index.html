@@ -1988,9 +1988,11 @@ html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
     chain = chain.then(function(){ return doRefresh(force, quiet); }).catch(function(){});
     return chain;
   }
+  var filledOpenDays = false;
   async function doRefresh(force, quiet){
     try {
       var today = keyOf(new Date());
+      if (!filledOpenDays){ filledOpenDays = true; try { await sb.rpc('fill_open_days'); } catch(e){} }
       var q = [
         sb.from('shop_settings').select('name,address,phone').eq('id', 1).maybeSingle(),
         sb.from('shop_hours').select('day_of_week,open_min,close_min'),
