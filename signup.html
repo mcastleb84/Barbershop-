@@ -28,7 +28,7 @@
   </form>
 
   <p id="message">Page ready (v2)</p>
-  <p style="text-align:center">Already have an account? <a href="index.html#barber">Log in</a></p>
+  <p style="text-align:center">Already have an account? <a href="desk.html">Log in</a></p>
 
   <script>
     const message = document.getElementById('message');
@@ -69,7 +69,7 @@
           email,
           password,
           options: {
-            emailRedirectTo: 'https://mcastleb84.github.io/Barbershop-/index.html#barber'
+            emailRedirectTo: 'https://mcastleb84.github.io/Barbershop-/desk.html'
           }
         });
 
@@ -78,7 +78,7 @@
         if (data.session) {
           message.textContent = 'Account created! Redirecting...';
           message.className = 'success';
-          setTimeout(() => { window.location.href = 'index.html'; }, 1000);
+          setTimeout(() => { window.location.href = 'desk.html'; }, 1000);
         } else {
           message.textContent = 'Check your email to confirm your account.';
           message.className = 'success';

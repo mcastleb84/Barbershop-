@@ -43,6 +43,27 @@ window.bsThemeOf = function(v){ return !v ? null : (v.id === 'custom' ? v : BS_T
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Barbershop">
+<script>
+/* ---------- two front doors: customer app (index.html) and staff app (desk.html or ?app=staff) ---------- */
+(function(){
+  var staff = /[?&]app=staff\b/.test(location.search);
+  window.BS_APP = staff ? 'staff' : 'cust';
+  document.documentElement.classList.add(staff ? 'app-staff' : 'app-cust');
+  if (!staff) return;
+  function set(sel, attr, v){ var e = document.querySelector(sel); if (e) e.setAttribute(attr, v); }
+  set('link[rel="manifest"]', 'href', 'manifest-staff.webmanifest');
+  set('link[rel="apple-touch-icon"]', 'href', 'apple-touch-icon-staff.png');
+  set('link[rel="icon"]', 'href', 'icon-staff-192.png');
+  set('meta[name="apple-mobile-web-app-title"]', 'content', 'Staff');
+  document.title = 'Staff';
+})();
+</script>
+<style>
+/* Customer app: no barber desk, no staff login */
+.app-cust .tabs,.app-cust #side-open,.app-cust #owner-open,.app-cust #menu-login,.app-cust #menu-owner,.app-cust #edit-hint{display:none!important}
+/* Staff app: no customer booking tab or pay buttons */
+.app-staff .tabs,.app-staff #pay-quick,.app-staff [data-menu="book"],.app-staff .paybit{display:none!important}
+</style>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
@@ -327,14 +348,14 @@ textarea.input{resize:vertical;font:inherit}
     <h2 id="pay-title">Menu</h2>
     <button class="side-close" id="pay-close" type="button" aria-label="Close menu">&times;</button>
   </div>
-  <h3 class="ownh" style="margin:0">Pay for your cut</h3>
-  <p class="hint" style="margin:0">Done with your cut? Pay by credit card, Cash App, Venmo or PayPal. Each button takes you to that site to pay. Paying online is optional; you can also pay at the shop.</p>
-  <div class="field" id="pay-who-wrap" hidden>
+  <h3 class="ownh paybit" style="margin:0">Pay for your cut</h3>
+  <p class="hint paybit" style="margin:0">Done with your cut? Pay by credit card, Cash App, Venmo or PayPal. Each button takes you to that site to pay. Paying online is optional; you can also pay at the shop.</p>
+  <div class="field paybit" id="pay-who-wrap" hidden>
     <label for="pay-who">Who are you paying?</label>
     <select class="sel" id="pay-who"></select>
   </div>
-  <div class="payopts" id="pay-opts"></div>
-  <p class="hint" id="pay-empty" style="margin:0" hidden></p>
+  <div class="payopts paybit" id="pay-opts"></div>
+  <p class="hint paybit" id="pay-empty" style="margin:0" hidden></p>
   <section class="ownsec" style="gap:8px">
     <h3 class="ownh" style="margin:0 0 4px">More</h3>
     <button class="menu-item" type="button" data-menu="book">Book a cut</button>
@@ -569,6 +590,7 @@ textarea.input{resize:vertical;font:inherit}
         <div id="desk-add" style="margin-top:18px" hidden>
           <h3 style="margin:0 0 4px;font-size:16px">Employees</h3>
           <p class="hint" style="margin:0 0 8px">Add, edit or remove barbers. Add an email to give someone a login for the barber desk.</p>
+          <p class="hint" style="margin:0 0 8px">Staff app link to send your barbers: <a id="staff-link" href="desk.html" style="overflow-wrap:anywhere"></a></p>
           <ul class="bk" id="emp-list"></ul>
           <button class="btn small" id="emp-new" type="button" style="margin-top:8px">+ Add employee</button>
           <div class="form" id="emp-form" hidden style="margin:10px 0;padding:14px;border:1.5px solid var(--line);border-radius:10px">
@@ -882,8 +904,9 @@ textarea.input{resize:vertical;font:inherit}
   }
   function renderContact(){
     var nm = $('shop-name'); nm.textContent = '';
-    document.title = SHOP.name;
-    var amt = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (amt) amt.setAttribute('content', SHOP.name);
+    var appName = window.BS_APP === 'staff' ? SHOP.name + ' Staff' : SHOP.name;
+    document.title = appName;
+    var amt = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (amt) amt.setAttribute('content', appName);
     var c = $('contact'); c.textContent = '';
     if (isAdmin){
       nm.append(h('button',{class:'editable',type:'button','aria-label':'Edit business name',onclick:function(){ openShopEdit('se-name'); }}, SHOP.name));
@@ -1037,7 +1060,8 @@ textarea.input{resize:vertical;font:inherit}
     renderProfile();
   }
   function fillProfileFields(){
-    $('prof-link').setAttribute('href', deskBarber ? '#profile-' + deskBarber : '#book');
+    var custPage = window.BS_APP === 'staff' ? 'index.html' : '';
+    $('prof-link').setAttribute('href', custPage + (deskBarber ? '#profile-' + deskBarber : '#book'));
     var b = barbers.filter(function(x){ return x.id === deskBarber; })[0];
     if (!b || profDirty) return;
     $('prof-spec').value = b.specialties || '';
@@ -1626,6 +1650,8 @@ textarea.input{resize:vertical;font:inherit}
   /* ---------- tabs and events ---------- */
   function applyTab(){
     var hash = (location.hash||'').replace('#','');
+    if (window.BS_APP === 'cust' && hash === 'barber'){ location.replace('desk.html'); return; }
+    if (window.BS_APP === 'staff' && hash !== 'barber'){ history.replaceState(null, '', '#barber'); hash = 'barber'; }
     tab = hash === 'barber' ? 'barber' : 'book';
     profileId = /^profile-./.test(hash) ? hash.slice(8) : null;
     syncProfileSelection();
@@ -1641,6 +1667,7 @@ textarea.input{resize:vertical;font:inherit}
   window.addEventListener('hashchange', function(){ applyTab(); window.scrollTo(0, 0); });
   $('cust-name').addEventListener('input', updateForm);
   $('book-btn').addEventListener('click', confirmBooking);
+  $('staff-link').textContent = location.origin + location.pathname.replace(/[^/]*$/, '') + 'desk.html';
   $('emp-new').addEventListener('click', function(){ openEmpForm(null); });
   $('emp-cancel').addEventListener('click', closeEmpForm);
   $('emp-save').addEventListener('click', saveEmp);
